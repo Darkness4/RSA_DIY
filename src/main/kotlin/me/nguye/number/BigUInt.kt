@@ -149,7 +149,7 @@ class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigU
         if (base != other.base) throw NumberFormatException()
         if (other == zero) throw ArithmeticException("/ by zero")
 
-        // Divide and conquer algorithm (Newton - Raphson)
+        // Divide and conquer algorithm
         var left = BigUInt(UIntArray(1) { 0u }, base)
         var right = BigUInt(mag.copyOf(), base)
         var prevMid = BigUInt(UIntArray(1) { 0u }, base)
@@ -178,6 +178,65 @@ class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigU
             n % two == zero -> this.pow(n.divBy2()) * this.pow(n.divBy2())
             else -> this * this.pow(n.divBy2()) * this.pow(n.divBy2())
         }
+    }
+
+    fun pow(n: Int): BigUInt {
+        return when {
+            n == 0 -> one
+            n % 2 == 0 -> this.pow(n / 2) * this.pow(n / 2)
+            else -> this * this.pow(n / 2) * this.pow(n / 2)
+        }
+    }
+
+    fun modInverse(other: BigUInt): BigUInt {
+        if (other == zero) return zero
+        var y = zero
+        var x = one
+
+        var a = this
+        var m = other
+        while (a > one) {
+            // q is quotient
+            val q = a / m
+            var t = m
+
+            // New remainder
+            m = a % m
+            a = t
+            t = y
+
+            // Update x and y
+            y = x - q * y
+            x = t
+        }
+
+        return x
+    }
+
+
+    fun modPlus(other: BigUInt, m: BigUInt): BigUInt {
+        val result = this + other
+        return if (result > m) result - m else result
+    }
+
+    fun modMinus(other: BigUInt, m: BigUInt): BigUInt {
+        val result = this - other
+        return if (result > m) result - m else result
+    }
+
+    /**
+     * This ^ n mod p using the Montgomery reduction algorithm
+     */
+    fun montgomeryTimes(other: BigUInt, m: BigUInt): BigUInt {
+        val baseBigUInt = BigUInt(uintArrayOf(base), base)
+        val r = baseBigUInt.pow(m.mag.size + 1)
+        val v: BigUInt = m.modInverse(r)
+
+        val timeResult = this * other
+        val modTimesResult = (timeResult * (r - v)) % r
+        val higherPart = timeResult + modTimesResult * m
+        val shiftResult = higherPart / r  // TODO: Since r is base^(size + 1), better use a shift
+        return if (shiftResult > m) shiftResult - m else shiftResult
     }
 
     /**
