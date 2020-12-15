@@ -9,6 +9,16 @@ plugins {
 group = "me.nguye"
 version = "1.0"
 
+configure<com.diffplug.gradle.spotless.SpotlessExtension> {
+    kotlin {
+        ktlint("0.40.0")
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint("0.40.0")
+    }
+}
+
 repositories {
     jcenter()
 }

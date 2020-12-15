@@ -3,21 +3,21 @@ package me.nguye.number
 import kotlin.math.max
 
 @ExperimentalUnsignedTypes
-class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Comparable<MyBigUnsignedInt> {
+class BigULong(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Comparable<BigULong> {
     companion object {
         private const val DEFAULT_BASE_STRING = 10
 
-        fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): MyBigUnsignedInt {
+        fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigULong {
             val mag = ULongArray(str.length)
             for ((i, char) in str.withIndex()) {
                 mag[str.length - i - 1] = Character.digit(char, radix).toULong()
             }
-            return MyBigUnsignedInt(mag, radix.toULong())
+            return BigULong(mag, radix.toULong())
         }
 
-        fun zero(base: ULong) = MyBigUnsignedInt(ULongArray(1) { 0uL }, base)
-        fun one(base: ULong) = MyBigUnsignedInt(ULongArray(1) { 1uL }, base)
-        fun two(base: ULong) = MyBigUnsignedInt(ULongArray(1) { 2uL }, base)
+        fun zero(base: ULong) = BigULong(ULongArray(1) { 0uL }, base)
+        fun one(base: ULong) = BigULong(ULongArray(1) { 1uL }, base)
+        fun two(base: ULong) = BigULong(ULongArray(1) { 2uL }, base)
     }
 
     private val zero by lazy { zero(base) }
@@ -35,7 +35,7 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
         this.mag = mag.stripTrailingZero()
     }
 
-    operator fun plus(other: MyBigUnsignedInt): MyBigUnsignedInt {
+    operator fun plus(other: BigULong): BigULong {
         if (base != other.base) throw NumberFormatException()
         if (this == zero) return other
         if (other == zero) return this
@@ -71,10 +71,10 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
             result[i] = carry
         }
 
-        return MyBigUnsignedInt(result, base)
+        return BigULong(result, base)
     }
 
-    operator fun minus(other: MyBigUnsignedInt): MyBigUnsignedInt {
+    operator fun minus(other: BigULong): BigULong {
         if (base != other.base) throw NumberFormatException()
         if (this == zero) return other
         if (other == zero) return this
@@ -108,10 +108,10 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
             result[i] = sub
         }
 
-        return MyBigUnsignedInt(result, base)
+        return BigULong(result, base)
     }
 
-    operator fun times(other: MyBigUnsignedInt): MyBigUnsignedInt {
+    operator fun times(other: BigULong): BigULong {
         if (base != other.base) throw NumberFormatException()
         if (this == zero || other == zero) return zero
 
@@ -128,10 +128,10 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
             result[i + mag.size] = carry
         }
 
-        return MyBigUnsignedInt(result, base)
+        return BigULong(result, base)
     }
 
-    fun divBy2(): MyBigUnsignedInt {
+    fun divBy2(): BigULong {
         if (this == zero || this == one) return zero
         val result = mag.copyOf()
 
@@ -142,17 +142,17 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
             result[i] = result[i] / 2u
         }
 
-        return MyBigUnsignedInt(result, base)
+        return BigULong(result, base)
     }
 
-    operator fun div(other: MyBigUnsignedInt): MyBigUnsignedInt {
+    operator fun div(other: BigULong): BigULong {
         if (base != other.base) throw NumberFormatException()
         if (other == zero) throw ArithmeticException("/ by zero")
 
         // Divide and conquer algorithm (Newton - Raphson)
-        var left = MyBigUnsignedInt(ULongArray(1) { 0u }, base)
-        var right = MyBigUnsignedInt(mag.copyOf(), base)
-        var prevMid = MyBigUnsignedInt(ULongArray(1) { 0u }, base)
+        var left = BigULong(ULongArray(1) { 0u }, base)
+        var right = BigULong(mag.copyOf(), base)
+        var prevMid = BigULong(ULongArray(1) { 0u }, base)
 
         while (true) {
             val mid = left + (right - left).divBy2()
@@ -172,7 +172,7 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
         }
     }
 
-    fun pow(n: MyBigUnsignedInt): MyBigUnsignedInt {
+    fun pow(n: BigULong): BigULong {
         return when {
             n == zero -> one
             n % two == zero -> this.pow(n.divBy2()) * this.pow(n.divBy2())
@@ -183,7 +183,7 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
     /**
      * this ^ n mod p
      */
-    fun modPow(n: MyBigUnsignedInt, p: MyBigUnsignedInt): MyBigUnsignedInt {
+    fun modPow(n: BigULong, p: BigULong): BigULong {
         if (p == one) return zero
         var base = this % p
         var exponent = n
@@ -198,7 +198,7 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
         return result
     }
 
-    operator fun rem(other: MyBigUnsignedInt): MyBigUnsignedInt {
+    operator fun rem(other: BigULong): BigULong {
         if (base != other.base) throw NumberFormatException()
         if (other == zero) throw ArithmeticException("/ by zero")
         if (this == other) return this
@@ -235,7 +235,7 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
         return mag.reversed().joinToString(separator = "") { it.toString(base.toInt()) }
     }
 
-    override fun compareTo(other: MyBigUnsignedInt): Int {
+    override fun compareTo(other: BigULong): Int {
         return when {
             this.mag.size < other.mag.size -> -1
             this.mag.size > other.mag.size -> 1
@@ -243,7 +243,7 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
         }
     }
 
-    fun compareMagnitudeTo(other: MyBigUnsignedInt): Int {
+    fun compareMagnitudeTo(other: BigULong): Int {
         for (i in mag.size - 1 downTo 0) {
             if (mag[i] < other.mag[i]) {
                 return -1
@@ -258,7 +258,7 @@ class MyBigUnsignedInt(mag: ULongArray, val base: ULong = ULong.MAX_VALUE) : Com
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as MyBigUnsignedInt
+        other as BigULong
 
         if (this.compareTo(other) != 0) return false
 

@@ -3,21 +3,21 @@ package me.nguye.number
 import kotlin.math.max
 
 @ExperimentalUnsignedTypes
-class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<BigUByte> {
+class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigUInt> {
     companion object {
         private const val DEFAULT_BASE_STRING = 10
 
-        fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigUByte {
-            val mag = UByteArray(str.length)
+        fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigUInt {
+            val mag = UIntArray(str.length)
             for ((i, char) in str.withIndex()) {
-                mag[str.length - i - 1] = Character.digit(char, radix).toUByte()
+                mag[str.length - i - 1] = Character.digit(char, radix).toUInt()
             }
-            return BigUByte(mag, radix.toUByte())
+            return BigUInt(mag, radix.toUInt())
         }
 
-        fun zero(base: UByte) = BigUByte(UByteArray(1) { 0u }, base)
-        fun one(base: UByte) = BigUByte(UByteArray(1) { 1u }, base)
-        fun two(base: UByte) = BigUByte(UByteArray(1) { 2u }, base)
+        fun zero(base: UInt) = BigUInt(UIntArray(1) { 0u }, base)
+        fun one(base: UInt) = BigUInt(UIntArray(1) { 1u }, base)
+        fun two(base: UInt) = BigUInt(UIntArray(1) { 2u }, base)
     }
 
     private val zero by lazy { zero(base) }
@@ -29,24 +29,24 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
      * zeroth element of this array is the least-significant int of the
      * magnitude.
      */
-    private var mag: UByteArray
+    private var mag: UIntArray
 
     init {
         this.mag = mag.stripTrailingZero()
     }
 
-    operator fun plus(other: BigUByte): BigUByte {
+    operator fun plus(other: BigUInt): BigUInt {
         if (base != other.base) throw NumberFormatException()
         if (this == zero) return other
         if (other == zero) return this
 
-        val result = UByteArray(max(mag.size, other.mag.size) + 1)
-        var carry: UByte = 0u
+        val result = UIntArray(max(mag.size, other.mag.size) + 1)
+        var carry: UInt = 0u
         var i = 0
 
         // Add common parts of both numbers
         while (i < mag.size && i < other.mag.size) {
-            val sum: UByte = mag[i] + other.mag[i] + carry
+            val sum: UInt = mag[i] + other.mag[i] + carry
             result[i] = sum % base
             carry = sum / base
             i++
@@ -54,13 +54,13 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
 
         // Add the last part
         while (i < mag.size) {
-            val sum: UByte = mag[i] + carry
+            val sum: UInt = mag[i] + carry
             result[i] = sum % base
             carry = sum / base
             i++
         }
         while (i < other.mag.size) {
-            val sum: UByte = other.mag[i] + carry
+            val sum: UInt = other.mag[i] + carry
             result[i] = sum % other.base
             carry = sum / base
             i++
@@ -71,16 +71,16 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
             result[i] = carry
         }
 
-        return BigUByte(result, base)
+        return BigUInt(result, base)
     }
 
-    operator fun minus(other: BigUByte): BigUByte {
+    operator fun minus(other: BigUInt): BigUInt {
         if (base != other.base) throw NumberFormatException()
         if (this == zero) return other
         if (other == zero) return this
 
-        val result = UByteArray(max(mag.size, other.mag.size))
-        var carry: UByte = 0u
+        val result = UIntArray(max(mag.size, other.mag.size))
+        var carry: UInt = 0u
 
         val (largest, smallest) = if (this < other) {
             other to this
@@ -90,7 +90,7 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
 
         // Subtract common parts of both numbers
         for (i in smallest.mag.indices) {
-            var sub: UByte = largest.mag[i] - smallest.mag[i] - carry
+            var sub: UInt = largest.mag[i] - smallest.mag[i] - carry
             carry = if (largest.mag[i] < smallest.mag[i] + carry) {
                 sub += largest.base
                 1u
@@ -100,7 +100,7 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
 
         // Subtract the last part
         for (i in smallest.mag.size until largest.mag.size) {
-            var sub: UByte = largest.mag[i] - carry
+            var sub: UInt = largest.mag[i] - carry
             carry = if (largest.mag[i] < carry) {
                 sub += largest.base
                 1u
@@ -108,18 +108,18 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
             result[i] = sub
         }
 
-        return BigUByte(result, base)
+        return BigUInt(result, base)
     }
 
-    operator fun times(other: BigUByte): BigUByte {
+    operator fun times(other: BigUInt): BigUInt {
         if (base != other.base) throw NumberFormatException()
         if (this == zero || other == zero) return zero
 
-        val result = UByteArray(mag.size + other.mag.size)
+        val result = UIntArray(mag.size + other.mag.size)
 
         // Basic multiplication
         for (i in other.mag.indices) {
-            var carry: UByte = 0u
+            var carry: UInt = 0u
             for (j in mag.indices) {
                 result[i + j] += other.mag[i] * mag[j] + carry
                 carry = result[i + j] / base
@@ -128,31 +128,31 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
             result[i + mag.size] = carry
         }
 
-        return BigUByte(result, base)
+        return BigUInt(result, base)
     }
 
-    fun divBy2(): BigUByte {
+    fun divBy2(): BigUInt {
         if (this == zero || this == one) return zero
         val result = mag.copyOf()
 
-        var carry: UByte = 0u
+        var carry: UInt = 0u
         for (i in mag.size - 1 downTo 0) {
             result[i] = result[i] + carry
             carry = if (result[i] % 2u == 1u) base else 0u
             result[i] = result[i] / 2u
         }
 
-        return BigUByte(result, base)
+        return BigUInt(result, base)
     }
 
-    operator fun div(other: BigUByte): BigUByte {
+    operator fun div(other: BigUInt): BigUInt {
         if (base != other.base) throw NumberFormatException()
         if (other == zero) throw ArithmeticException("/ by zero")
 
         // Divide and conquer algorithm (Newton - Raphson)
-        var left = BigUByte(UByteArray(1) { 0u }, base)
-        var right = BigUByte(mag.copyOf(), base)
-        var prevMid = BigUByte(UByteArray(1) { 0u }, base)
+        var left = BigUInt(UIntArray(1) { 0u }, base)
+        var right = BigUInt(mag.copyOf(), base)
+        var prevMid = BigUInt(UIntArray(1) { 0u }, base)
 
         while (true) {
             val mid = left + (right - left).divBy2()
@@ -172,7 +172,7 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
         }
     }
 
-    fun pow(n: BigUByte): BigUByte {
+    fun pow(n: BigUInt): BigUInt {
         return when {
             n == zero -> one
             n % two == zero -> this.pow(n.divBy2()) * this.pow(n.divBy2())
@@ -183,7 +183,7 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
     /**
      * this ^ n mod p
      */
-    fun modPow(n: BigUByte, p: BigUByte): BigUByte {
+    fun modPow(n: BigUInt, p: BigUInt): BigUInt {
         if (p == one) return zero
         var base = this % p
         var exponent = n
@@ -198,7 +198,7 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
         return result
     }
 
-    operator fun rem(other: BigUByte): BigUByte {
+    operator fun rem(other: BigUInt): BigUInt {
         if (base != other.base) throw NumberFormatException()
         if (other == zero) throw ArithmeticException("/ by zero")
         if (this == other) return this
@@ -209,7 +209,7 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
         return this - prodResult
     }
 
-    private fun UByteArray.stripTrailingZero(): UByteArray {
+    private fun UIntArray.stripTrailingZero(): UIntArray {
         // Find first nonzero byte
         var keep = this.size - 1
         while (keep > 0 && this[keep] == 0u) {
@@ -225,11 +225,11 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
     /**
      * Return a string number in specified base
      */
-    private fun toStringBase(base: UByte): String {
+    private fun toStringBase(base: UInt): String {
         return mag.reversed().joinToString(separator = "") { it.toString(base.toInt()) }
     }
 
-    override fun compareTo(other: BigUByte): Int {
+    override fun compareTo(other: BigUInt): Int {
         return when {
             this.mag.size < other.mag.size -> -1
             this.mag.size > other.mag.size -> 1
@@ -237,7 +237,7 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
         }
     }
 
-    fun compareMagnitudeTo(other: BigUByte): Int {
+    fun compareMagnitudeTo(other: BigUInt): Int {
         for (i in mag.size - 1 downTo 0) {
             if (mag[i] < other.mag[i]) {
                 return -1
@@ -252,7 +252,7 @@ class BigUByte(mag: UByteArray, val base: UByte = UByte.MAX_VALUE) : Comparable<
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as BigUByte
+        other as BigUInt
 
         if (this.compareTo(other) != 0) return false
 
