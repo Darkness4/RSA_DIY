@@ -219,7 +219,13 @@ class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigU
     }
 
     override fun toString(): String {
-        return toStringBase(base)
+        return when (base) {
+            in 1u..36u -> toStringBase(base)
+            else -> mag.joinToString(
+                prefix = "{",
+                postfix = "}"
+            )
+        }
     }
 
     /**
