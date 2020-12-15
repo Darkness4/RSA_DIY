@@ -1,9 +1,4 @@
 import me.nguye.number.BigUInt
-import me.nguye.number.BigULong
-
-fun findE(totient: BigULong) {
-
-}
 
 @ExperimentalUnsignedTypes
 fun main() {
