@@ -82,7 +82,7 @@ RxR' + Nx(-V) = 1
 
 modulo R on obtient : N(-V) =1 mod R
 
-N=-1/V mod R
+V=-1/N mod R
 
 
     T = S x (-1/N) mod R

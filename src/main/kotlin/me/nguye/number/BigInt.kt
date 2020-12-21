@@ -33,18 +33,26 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
         fun zero(base: UInt) = BigInt(UIntArray(1) { 0u }, base, 0)
         fun one(base: UInt) = BigInt(UIntArray(1) { 1u }, base, 1)
         fun two(base: UInt) = BigInt(UIntArray(1) { 2u }, base, 1)
+        fun twoPowK(k: Int) = basePowK(2u, k)
+        fun basePowK(base: UInt, k: Int): BigInt {
+            val mag = UIntArray(k + 1).apply {
+                this[k] = 1u
+            }
+            return BigInt(mag, base, 1)
+        }
     }
 
     private val zero by lazy { zero(base) }
     private val one by lazy { one(base) }
     private val two by lazy { two(base) }
+    fun basePowK(k: Int): BigInt = basePowK(base, k)
 
     /**
      * The magnitude of this BigInteger, in <i>little-endian</i> order: the
      * zeroth element of this array is the least-significant int of the
      * magnitude.
      */
-    private var mag: UIntArray
+    var mag: UIntArray
 
     init {
         this.mag = mag.stripTrailingZero()
@@ -291,74 +299,58 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
         return valueOf(result.toString(base.toInt()), base.toInt())
     }
 
-    infix fun extendedGCD(other: BigInt): Triple<BigInt, BigInt, BigInt> {
-        var r1 = this
-        var r2 = other
-        var u1 = one
-        var v1 = zero
-        var u2 = zero
-        var v2 = one
+    infix fun extendedGcd(other: BigInt): Triple<BigInt, BigInt, BigInt> {
+        if (this == zero) return Triple(other, zero, one)
 
-        while (r2 != zero) {
-            val q = r1 / r2
-            val (r3, u3, v3) = Triple(r1, u1, v1)
-            r1 = r2
-            u1 = u2
-            v1 = v2
-            println("r2{${r3 - q * r2}} = r3{$r3} - q{$q} * r2{$r2}")
-            r2 = r3 - q * r2
-            println("u2{${u3 - q * u2}} = u3{$u3} - q{$q} * u2{$u2}")
-            u2 = u3 - q * u2
-            println("v2{${v3 - q * v2}} = v3{$v3} - q{$q} * v2{$v2}")
-            v2 = v3 - q * v2
-        }
+        val (gcd, x1, y1) = (other % this) extendedGcd this
 
-        return Triple(r1, u1, v1)
+        val x = y1 - (other / this) * x1
+        return Triple(gcd, x, x1)
     }
 
     /**
      * This * n mod m using the Montgomery reduction algorithm.
      *
      * Beware that the number should be in the Montgomery form beforehand with the Montgomery transform.
-     * e.g : ThisInMontgomery = This * r mod m, where r = base^k with r < base.pow(k)
+     * e.g : ThisInMontgomery = This * r mod n, where r = base^k with r < base.pow(k)
      */
-    fun montgomeryTimes(other: BigInt, m: BigInt, r: BigInt): BigInt {
-        val v: BigInt = m modInverse r  // This is not negative... How to carry the minus ?
-        // r * r' - m * v = 1
-
-        val timeResult = this * other
-        val modTimesResult = (timeResult * v) % r
-        val higherPart = timeResult + modTimesResult * m
-        val shiftResult = higherPart shl m.mag.size
-        return if (shiftResult >= m) shiftResult - m else shiftResult
+    fun montgomeryTimes(other: BigInt, n: BigInt, v: BigInt): BigInt {
+        val timesResult = this * other
+        val negativeLowerPart = (timesResult * v) remShl n.mag.size
+        val higherPart = timesResult + negativeLowerPart * n
+        val shiftResult = higherPart shl n.mag.size
+        var modResult = shiftResult
+        while (modResult >= n) {
+            modResult -= n
+        }
+        while (modResult < zero) {
+            modResult += n
+        }
+        return modResult
     }
 
-    fun modPow(exponent: BigInt, m: BigInt): BigInt {
+    fun modPow(exponent: BigInt, n: BigInt): BigInt {
         if (base != exponent.base) throw NumberFormatException()
-        if (base != m.base) throw NumberFormatException()
+        if (base != n.base) throw NumberFormatException()
 
         // Convert to base 2
-        val mBase2 = m.toBase(2u)
+        val nBase2 = n.toBase(2u)
         val thisBase2 = this.toBase(2u)
-        val rMag = UIntArray(mBase2.mag.size + 1).apply {
-            this[mBase2.mag.size] = 1u
-        }
-        val r = BigInt(rMag, 2u, sign = 1)  // r = 2^(m.size)
-        val rSquareMag = UIntArray(mBase2.mag.size*2 + 1).apply {
-            this[mBase2.mag.size*2] = 1u
-        }
-        val rSquare = BigInt(rSquareMag, 2u, sign = 1)  // r = 2^(2*m.size)
+        val r = twoPowK(nBase2.mag.size)
+        val rSquare = twoPowK(nBase2.mag.size * 2)
+        val (gcd, rPrime, v) = r extendedGcd nBase2
+        val negativeV = BigInt(v.mag, v.base, -v.sign)
 
-        val thisMgy = thisBase2.montgomeryTimes(rSquare, mBase2, r)
+        val thisMgy = thisBase2.montgomeryTimes(rSquare, nBase2, negativeV)
 
-        var pMgy = r - mBase2
-        for (i in mBase2.mag.size - 1 downTo 0) {
-            pMgy = pMgy.montgomeryTimes(pMgy, mBase2, r)
-            if (mBase2.mag[i] == 1u) {
-                pMgy = pMgy.montgomeryTimes(thisMgy, mBase2, r)
+        var pMgy = r - nBase2
+        for (i in nBase2.mag.size - 1 downTo 0) {
+            pMgy = pMgy.montgomeryTimes(pMgy, nBase2, negativeV)
+            if (nBase2.mag[i] == 1u) {
+                pMgy = pMgy.montgomeryTimes(thisMgy, nBase2, negativeV)
             }
         }
-        return pMgy.montgomeryTimes(one(base = 2u), mBase2, r)
+        return pMgy.montgomeryTimes(one(base = 2u), nBase2, negativeV)
     }
 
     operator fun rem(other: BigInt): BigInt {
@@ -368,6 +360,18 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
 
         val divResult = this / other
         val prodResult = other * divResult
+        return this - prodResult
+    }
+
+    /**
+     * Return the remainder of `this mod base.pow(k)`.
+     */
+    infix fun remShl(k: Int): BigInt {
+        if (k == 0) return zero
+
+        val basePowK = basePowK(k)
+        val divResult = this shl k
+        val prodResult = basePowK * divResult
         return this - prodResult
     }
 

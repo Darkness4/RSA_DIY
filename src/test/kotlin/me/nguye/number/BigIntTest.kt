@@ -1,6 +1,8 @@
 package me.nguye.number
 
 import io.kotest.core.spec.style.WordSpec
+import io.kotest.matchers.comparables.shouldBeGreaterThan
+import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 
 @ExperimentalUnsignedTypes
@@ -229,6 +231,91 @@ class BigIntTest : WordSpec({
         }
     }
 
+    "montgomeryTimes" should {
+        "A to phi(A) with A = 413 * 10000 mod 3233 = 1459 in base 10" {
+            val a = BigInt.valueOf("413", 10)
+            val n = BigInt.valueOf("3233", 10)
+
+            val r = BigInt.basePowK(10u, n.mag.size)
+            val rSquare = BigInt.basePowK(10u, n.mag.size * 2)
+            val (gcd, rPrime, v) = r extendedGcd n
+            val negativeV = BigInt(v.mag, v.base, -v.sign)
+
+            val aMgy = a.montgomeryTimes(rSquare, n, negativeV)
+
+            gcd shouldBe BigInt.one(10u)
+            aMgy shouldBe BigInt.valueOf("1459", 10)
+        }
+
+        "phi(A) to A with A = 413 * 10000 mod 3233 = 1459 in base 10" {
+            val a = BigInt.valueOf("413", 10)
+            val n = BigInt.valueOf("3233", 10)
+
+            val r = BigInt.basePowK(10u, n.mag.size)
+            val rSquare = BigInt.basePowK(10u, n.mag.size * 2)
+            val (gcd, rPrime, v) = r extendedGcd n
+            val negativeV = BigInt(v.mag, v.base, -v.sign)
+
+            val aMgy = a.montgomeryTimes(rSquare, n, negativeV)
+            val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 10u), n, negativeV)
+
+            gcd shouldBe BigInt.one(10u)
+            aNotMgy shouldBe a
+        }
+
+        "A to phi(A) with A = 413 * 4096 mod 3233 = 789" {
+            val a = BigInt.valueOf("413", 10).toBase(2u)
+            val n = BigInt.valueOf("3233", 10).toBase(2u)
+
+            // Convert to base 2
+            val r = BigInt.twoPowK(n.mag.size)
+            val rSquare = BigInt.twoPowK(n.mag.size * 2)
+            val (gcd, rPrime, v) = r extendedGcd n
+            val negativeV = BigInt(v.mag, v.base, -v.sign)
+
+            val aMgy = a.montgomeryTimes(rSquare, n, negativeV)
+
+            gcd shouldBe BigInt.one(2u)
+            aMgy shouldBe BigInt.valueOf("789", 10).toBase(2u)
+        }
+
+        "phi(A) to A with A = 413 * 4096 mod 3233" {
+            val a = BigInt.valueOf("413", 10).toBase(2u)
+            val n = BigInt.valueOf("3233", 10).toBase(2u)
+
+            val r = BigInt.twoPowK(n.mag.size)
+            val rSquare = BigInt.twoPowK(n.mag.size * 2)
+            val (gcd, rPrime, v) = r extendedGcd n
+            val negativeV = BigInt(v.mag, v.base, -v.sign)
+
+            val aMgy = a.montgomeryTimes(rSquare, n, negativeV)
+            val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 2u), n, negativeV)
+
+            gcd shouldBe BigInt.one(2u)
+            aNotMgy shouldBe a
+        }
+    }
+
+    "remShl" should {
+        "17 remShl 3 = 1 in base 2 (equivalent to mod 8)" {
+            val a = BigInt.valueOf("17", 10).toBase(2u)
+            val c = BigInt.valueOf("1", 10).toBase(2u)
+            a remShl 3 shouldBe c
+        }
+
+        "32 remShl 1 = 2 in base 10 (equivalent to mod 10)" {
+            val a = BigInt.valueOf("32", 10)
+            val c = BigInt.valueOf("2", 10)
+            a remShl 1 shouldBe c
+        }
+
+        "314 remShl 2 = 14 in base 10 (equivalent to mod 100)" {
+            val a = BigInt.valueOf("314", 10)
+            val c = BigInt.valueOf("14", 10)
+            a remShl 2 shouldBe c
+        }
+    }
+
     "modInverse" should {
         "10 * x = 1 mod 17 gives 12" {
             val a = BigInt.valueOf("10", 10)
@@ -247,7 +334,7 @@ class BigIntTest : WordSpec({
             val expected = Triple(BigInt.valueOf("1", 10),
                 BigInt.valueOf("-5", 10),
                 BigInt.valueOf("3", 10))
-            a extendedGCD b shouldBe expected
+            a extendedGcd b shouldBe expected
         }
     }
 })
