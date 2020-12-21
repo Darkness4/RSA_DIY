@@ -1,9 +1,13 @@
 package me.nguye.number
 
+import java.math.BigInteger
+import kotlin.math.ceil
+import kotlin.math.log10
+import kotlin.math.log2
 import kotlin.math.max
 
 @ExperimentalUnsignedTypes
-class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigUInt> {
+class BigUInt(mag: UIntArray, val base: UInt) : Comparable<BigUInt> {
     companion object {
         private const val DEFAULT_BASE_STRING = 10
 
@@ -131,6 +135,50 @@ class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigU
         return BigUInt(result, base)
     }
 
+    /**
+     * Shift the magnitude array to the left. (equivalent to dividing by base, since little endian)
+     *
+     * 0 are added on the right. No rotation.
+     */
+    infix fun shl(n: Int): BigUInt {
+        if (n == 0) return this
+
+        // An example :
+        // n = 2
+        // mag = {0, 1, 2, 3, 4, 5, 6} (size = 7)
+        // subArray = {2, 3, 4, 5, 6} (size = mag.size - n = 5)
+        // zeroes = {0, 0, 0, 0, 0, 0, 0}
+        // result = {2, 3, 4, 5, 6, 0, 0} (destinationOffset = n = 2)
+        val subArray = mag.copyOfRange(n, mag.size)
+
+        val zeroes = UIntArray(mag.size)
+
+        val result = subArray.copyInto(zeroes, 0, 0, subArray.size)
+        return BigUInt(result, base)
+    }
+
+    /**
+     * Shift the magnitude array to the right. (equivalent to multiplying by base, since little endian)
+     *
+     * 0 are added on the left. No rotation.
+     */
+    infix fun shr(n: Int): BigUInt {
+        if (n == 0) return this
+
+        // An example :
+        // n = 2
+        // mag = {0, 1, 2, 3, 4, 5, 6} (size = 7)
+        // subArray = {0, 1, 2, 3, 4} (size = mag.size - n = 5)
+        // zeroes = {0, 0, 0, 0, 0, 0, 0}
+        // result = {0, 0, 0, 1, 2, 3, 4} (destinationOffset = n = 2)
+        val subArray = mag.copyOfRange(0, mag.size - n)
+
+        val zeroes = UIntArray(mag.size)
+
+        val result = subArray.copyInto(zeroes, n, 0, subArray.size)
+        return BigUInt(result, base)
+    }
+
     fun divBy2(): BigUInt {
         if (this == zero || this == one) return zero
         val result = mag.copyOf()
@@ -148,11 +196,12 @@ class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigU
     operator fun div(other: BigUInt): BigUInt {
         if (base != other.base) throw NumberFormatException()
         if (other == zero) throw ArithmeticException("/ by zero")
+        if (this == one || this == zero) return zero
 
         // Divide and conquer algorithm
-        var left = BigUInt(UIntArray(1) { 0u }, base)
+        var left = zero
         var right = BigUInt(mag.copyOf(), base)
-        var prevMid = BigUInt(UIntArray(1) { 0u }, base)
+        var prevMid = zero
 
         while (true) {
             val mid = left + (right - left).divBy2()
@@ -188,32 +237,6 @@ class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigU
         }
     }
 
-    fun modInverse(other: BigUInt): BigUInt {
-        if (other == zero) return zero
-        var y = zero
-        var x = one
-
-        var a = this
-        var m = other
-        while (a > one) {
-            // q is quotient
-            val q = a / m
-            var t = m
-
-            // New remainder
-            m = a % m
-            a = t
-            t = y
-
-            // Update x and y
-            y = x - q * y
-            x = t
-        }
-
-        return x
-    }
-
-
     fun modPlus(other: BigUInt, m: BigUInt): BigUInt {
         val result = this + other
         return if (result > m) result - m else result
@@ -224,44 +247,55 @@ class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigU
         return if (result > m) result - m else result
     }
 
-    /**
-     * This ^ n mod p using the Montgomery reduction algorithm
-     */
-    fun montgomeryTimes(other: BigUInt, m: BigUInt): BigUInt {
-        val baseBigUInt = BigUInt(uintArrayOf(base), base)
-        val r = baseBigUInt.pow(m.mag.size + 1)
-        val v: BigUInt = m.modInverse(r)
+    infix fun modInverse(other: BigUInt): BigUInt {
+        val self = BigInteger(this.toString(), base.toInt())
+        val otherBig = BigInteger(other.toString(), base.toInt())
+        val result = self.modInverse(otherBig)
 
-        val timeResult = this * other
-        val modTimesResult = (timeResult * (r - v)) % r
-        val higherPart = timeResult + modTimesResult * m
-        val shiftResult = higherPart / r  // TODO: Since r is base^(size + 1), better use a shift
-        return if (shiftResult > m) shiftResult - m else shiftResult
+        return valueOf(result.toString(base.toInt()), base.toInt())
     }
 
     /**
-     * this ^ n mod p
+     * This * n mod m using the Montgomery reduction algorithm.
+     *
+     * Beware that the number should be in the Montgomery form beforehand with the Montgomery transform.
+     * e.g : ThisInMontgomery = This * r mod m, where r = base^k with r < base.pow(k)
      */
-    fun modPow(n: BigUInt, p: BigUInt): BigUInt {
-        if (p == one) return zero
-        var base = this % p
-        var exponent = n
-        var result = one
-        while (exponent > zero) {
-            if (exponent % two == one) {
-                result = (result * base) % p
+    fun montgomeryTimes(exponent: BigUInt, m: BigUInt, r: BigUInt): BigUInt {
+        val v: BigUInt = m modInverse r
+
+        val timeResult = this * exponent
+        val modTimesResult = (timeResult * v) % r
+        val higherPart = timeResult + modTimesResult * m
+        val shiftResult = higherPart shl m.mag.size
+        return if (shiftResult > m) shiftResult - m else shiftResult
+    }
+
+    fun modPow(exponent: BigUInt, m: BigUInt): BigUInt {
+        if (base != exponent.base) throw NumberFormatException()
+        if (base != m.base) throw NumberFormatException()
+
+        // Convert to base 2
+        val mBase2 = m.toBase(2u)
+        val thisBase2 = this.toBase(2u)
+        val r = two(base = 2u).pow(m.mag.size + 1)
+
+        val thisMgy = thisBase2.montgomeryTimes(r.pow(2), mBase2, r)
+
+        var p = r - mBase2
+        for (i in mBase2.mag.size - 1 downTo 0) {
+            p = p.montgomeryTimes(p, mBase2, r)
+            if (mBase2.mag[i] == 1u) {
+                p = p.montgomeryTimes(thisMgy, mBase2 , r)
             }
-            exponent = exponent.divBy2()
-            base = (base * base) % p
         }
-        return result
+        return p
     }
 
     operator fun rem(other: BigUInt): BigUInt {
         if (base != other.base) throw NumberFormatException()
         if (other == zero) throw ArithmeticException("/ by zero")
-        if (this == other) return this
-        if (other == one) return zero
+        if (this == other || other == one) return zero
 
         val divResult = this / other
         val prodResult = other * divResult
@@ -302,7 +336,7 @@ class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigU
         }
     }
 
-    fun compareMagnitudeTo(other: BigUInt): Int {
+    private fun compareMagnitudeTo(other: BigUInt): Int {
         for (i in mag.size - 1 downTo 0) {
             if (mag[i] < other.mag[i]) {
                 return -1
@@ -311,6 +345,41 @@ class BigUInt(mag: UIntArray, val base: UInt = UInt.MAX_VALUE) : Comparable<BigU
             }
         }
         return 0
+    }
+
+    fun toBase(newBase: UInt): BigUInt {
+        if (base == newBase) return this
+
+        val size = ceil((this.mag.size + 1) / log10(newBase.toDouble()) + 1).toInt()
+        val result = UIntArray(size)
+        val b = valueOf(newBase.toString(), base.toInt())
+
+        var i = 0
+        var num = this
+        while (num != zero) {
+            result[i] = (num % b).toStringBase(base).toUInt(base.toInt())
+            num /= b
+
+            i++
+        }
+
+        return BigUInt(result, newBase)
+    }
+
+    fun fromBase2toBase(newBase: UInt): BigUInt {
+        if (newBase % 2u != 0u) throw ArithmeticException("newBase is not a multiple of 2")
+        val thisBase2 = this.toBase(2u)
+        val chunckSize = log2(newBase.toDouble()).toInt()
+        val size = thisBase2.mag.size / chunckSize + 1
+        val result = UIntArray(size)
+
+        for (i in result.indices) {
+            for (j in 0 until chunckSize) {
+                result[i] += thisBase2.mag.elementAtOrElse(i * chunckSize + j) { 0u } shl j
+            }
+        }
+
+        return BigUInt(result, newBase)
     }
 
     override fun equals(other: Any?): Boolean {

@@ -19,13 +19,15 @@ configure<com.diffplug.gradle.spotless.SpotlessExtension> {
     }
 }
 
+tasks.withType<Test> {
+    useJUnitPlatform()
+}
+
 repositories {
     jcenter()
 }
 dependencies {
-    val kotest_version = "4.3.1"
-    testImplementation(kotlin("test-junit5"))
-    testImplementation("io.mockk:mockk:1.10.0")
+    val kotest_version = "4.3.2"
     testImplementation("io.kotest:kotest-runner-junit5:$kotest_version")
     testImplementation("io.kotest:kotest-assertions-core:$kotest_version")
     testImplementation("io.kotest:kotest-property:$kotest_version")
