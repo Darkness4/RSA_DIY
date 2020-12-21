@@ -229,6 +229,14 @@ class BigIntTest : WordSpec({
             val expected = BigInt.valueOf("65", 10)
             c.modPow(d, n) shouldBe expected.toBase(2u)
         }
+        "2 ^ 23 % 55 = 8" {
+            val c = BigInt.valueOf("2", 10)
+            val d = BigInt.valueOf("23", 10)
+            val n = BigInt.valueOf("55", 10)
+
+            val expected = BigInt.valueOf("8", 10)
+            c.modPow(d, n) shouldBe expected.toBase(2u)
+        }
     }
 
     "montgomeryTimes" should {

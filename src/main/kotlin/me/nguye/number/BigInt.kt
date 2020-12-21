@@ -45,7 +45,7 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
     private val zero by lazy { zero(base) }
     private val one by lazy { one(base) }
     private val two by lazy { two(base) }
-    fun basePowK(k: Int): BigInt = basePowK(base, k)
+    private fun basePowK(k: Int): BigInt = basePowK(base, k)
 
     /**
      * The magnitude of this BigInteger, in <i>little-endian</i> order: the
@@ -336,6 +336,7 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
         // Convert to base 2
         val nBase2 = n.toBase(2u)
         val thisBase2 = this.toBase(2u)
+        val exponentBase2 = exponent.toBase(2u)
         val r = twoPowK(nBase2.mag.size)
         val rSquare = twoPowK(nBase2.mag.size * 2)
         val (gcd, rPrime, v) = r extendedGcd nBase2
@@ -344,9 +345,9 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
         val thisMgy = thisBase2.montgomeryTimes(rSquare, nBase2, negativeV)
 
         var pMgy = r - nBase2
-        for (i in nBase2.mag.size - 1 downTo 0) {
+        for (i in exponentBase2.mag.size - 1 downTo 0) {
             pMgy = pMgy.montgomeryTimes(pMgy, nBase2, negativeV)
-            if (nBase2.mag[i] == 1u) {
+            if (exponentBase2.mag[i] == 1u) {
                 pMgy = pMgy.montgomeryTimes(thisMgy, nBase2, negativeV)
             }
         }
