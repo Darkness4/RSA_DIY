@@ -10,7 +10,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
 @ExperimentalUnsignedTypes
-class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt> {
+class BigInt(mag: UIntArray, val base: UInt, sign: Int) : Comparable<BigInt> {
     companion object {
         private const val DEFAULT_BASE_STRING = 10
 
@@ -19,7 +19,7 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
          */
         fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigInt {
             var i = 0
-            val (mag, sign) = if (str.first() == '-') {
+            val (mag, sign) = if (str.first() == '-' || str.first() == '+') {
                 i++
                 UIntArray(str.length - 1) to -1
             } else {
@@ -30,15 +30,11 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
                 mag[j] = Character.digit(str[i], radix).toUInt()
                 i++
             }
-            val result = BigInt(mag, radix.toUInt(), sign)
-            val zero = zero(radix.toUInt())
-            if (result.compareUnsignedTo(zero) == 0) return zero
             return BigInt(mag, radix.toUInt(), sign)
         }
 
         fun zero(base: UInt) = BigInt(UIntArray(1) { 0u }, base, 0)
         fun one(base: UInt) = BigInt(UIntArray(1) { 1u }, base, 1)
-        fun twoPowK(k: Int) = basePowK(2u, k)
         fun basePowK(base: UInt, k: Int): BigInt {
             val mag = UIntArray(k + 1).apply {
                 this[k] = 1u
@@ -56,10 +52,16 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
      * zeroth element of this array is the least-significant int of the
      * magnitude.
      */
-    var mag: UIntArray
+    val mag: UIntArray
+
+    /**
+     * Sign of this Signed BigInteger.
+     */
+    val sign: Int
 
     init {
         this.mag = mag.stripTrailingZero()
+        this.sign = if (this.mag.size == 1 && this.mag.first() == 0u) 0 else sign
     }
 
     operator fun plus(other: BigInt): BigInt {
@@ -90,11 +92,7 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
 
         val result = subtractMagnitude(other)
 
-        return if (this < other) {
-            BigInt(result, base, -1)
-        } else {
-            BigInt(result, base, 1)
-        }
+        return if (this < other) BigInt(result, base, -1) else BigInt(result, base, 1)
     }
 
     operator fun unaryMinus() = BigInt(mag, base, -sign)
@@ -133,7 +131,14 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
         // subArray = {2, 3, 4, 5, 6} (size = mag.size - n = 5)
         // zeroes = {0, 0, 0, 0, 0, 0, 0}
         // result = {2, 3, 4, 5, 6} (destinationOffset = n = 2)
-        val subArray = mag.copyOfRange(n, mag.size)
+        //
+        // A critical case example (n >= mag.size: Shift all) :
+        // n = 5
+        // mag = {0, 1} (size = 2)
+        // subArray = {}
+        // zeroes = {0, 0}
+        // result = {0, 0}
+        val subArray = if (n < mag.size) mag.copyOfRange(n, mag.size) else UIntArray(0)
 
         val zeroes = UIntArray(mag.size)
 
@@ -199,9 +204,8 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
     infix fun remShl(k: Int): BigInt {
         if (k == 0) return zero
 
-        val basePowK = basePowK(k)
         val divResult = this shl k
-        val prodResult = basePowK * divResult
+        val prodResult = basePowK(k) * divResult
         return this - prodResult
     }
 
@@ -221,10 +225,12 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
      */
     fun montgomeryTimes(other: BigInt, n: BigInt, v: BigInt): BigInt {
         val timesResult = this * other
-        val negativeLowerPart = (timesResult * v) remShl n.mag.size
-        val higherPart = timesResult + negativeLowerPart * n  // TODO: Use MulAdd here
-        val shiftResult = higherPart shl n.mag.size
-        return shiftResult % n  // TODO: Optimize here !
+        val negativeLowerPart = ((timesResult remShl n.mag.size) * v) remShl n.mag.size
+        val shiftResult = (timesResult + negativeLowerPart * n) shl n.mag.size // TODO: Use MulAdd here
+        return when {
+            shiftResult >= n -> shiftResult % n // TODO: Document
+            else -> shiftResult
+        }
     }
 
     @ExperimentalTime
@@ -237,7 +243,7 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
         val rSquare = basePowK(n.mag.size * 2)
 
         println("Calculating v...")
-        val v = -(n modInverse r)  // r * r' - n * v = 1, n * v = -1 mod r, "v = -1/n mod r"
+        val v = r - (n modInverse r) // r * r' - n * v = 1, n * v = -1 mod r, "v = -1/n mod r"
         println("v=$v")
 
         println("Calculating Montgomery Form...")
@@ -245,21 +251,14 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
         println("phi(a)=$thisMgy")
 
         var pMgy = r - n
-        var oldTime = Duration.ZERO
         for (i in exponentBase2.mag.size - 1 downTo 0) {
-            val time = measureTime {
-                pMgy = pMgy.montgomeryTimes(pMgy, n, v)
-                if (exponentBase2.mag[i] == 1u) {
-                    pMgy = pMgy.montgomeryTimes(thisMgy, n, v)
-                }
+            pMgy = pMgy.montgomeryTimes(pMgy, n, v)
+            if (exponentBase2.mag[i] == 1u) {
+                pMgy = pMgy.montgomeryTimes(thisMgy, n, v)
             }
-            println("${i}/${exponentBase2.mag.size} left")
-            println("Time Measured: $time. ETA: ${(oldTime+time)/2 * i}")
-            oldTime = time
         }
-        return pMgy.montgomeryTimes(one , n, v)
+        return pMgy.montgomeryTimes(one, n, v)
     }
-
 
     private fun addMagnitude(other: BigInt): UIntArray {
         val result = UIntArray(max(mag.size, other.mag.size) + 1)
@@ -419,6 +418,19 @@ class BigInt(mag: UIntArray, val base: UInt, val sign: Int) : Comparable<BigInt>
         }
 
         return BigInt(result, newBase, sign)
+    }
+
+    fun explicitToString(): String {
+        val builder = StringBuilder()
+        if (sign == -1) builder.append('-')
+        if (sign == 1) builder.append('+')
+        builder.append(
+            mag.joinToString(
+                prefix = "{",
+                postfix = "}"
+            )
+        )
+        return builder.toString()
     }
 
     override fun equals(other: Any?): Boolean {

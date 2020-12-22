@@ -2,9 +2,17 @@ package me.nguye.number
 
 import io.kotest.core.spec.style.WordSpec
 import io.kotest.matchers.shouldBe
+import kotlin.time.ExperimentalTime
 
+@ExperimentalTime
 @ExperimentalUnsignedTypes
 class BigIntTest : WordSpec({
+    "basePowK" should {
+        "2^5" {
+            val result = BigInt.basePowK(2u, 5)
+            result shouldBe BigInt.valueOf("32", 10).toBase(2u)
+        }
+    }
     "plus" should {
         "-2 + 2 = 0" {
             val a = BigInt.valueOf("-2", 10)
@@ -227,6 +235,31 @@ class BigIntTest : WordSpec({
             val expected = BigInt.valueOf("65", 10)
             c.modPow(d, n) shouldBe expected
         }
+
+        "2790 ^ 413 % 3233 = 65 in base 2" {
+            val c = BigInt.valueOf("2790", 10).toBase(2u)
+            val d = BigInt.valueOf("413", 10).toBase(2u)
+            val n = BigInt.valueOf("3233", 10).toBase(2u)
+
+            val expected = BigInt.valueOf("65", 10).toBase(2u)
+            c.modPow(d, n) shouldBe expected
+        }
+    }
+
+    "shl" should {
+        "12345 shl 2 in base 10 = 123" {
+            val a = BigInt.valueOf("12345", 10)
+
+            val expected = BigInt.valueOf("123", 10)
+            a shl 2 shouldBe expected
+        }
+
+        "-12345 shl 2 in base 10 = -123" {
+            val a = BigInt.valueOf("-12345", 10)
+
+            val expected = BigInt.valueOf("-123", 10)
+            a shl 2 shouldBe expected
+        }
     }
 
     "montgomeryTimes" should {
@@ -236,7 +269,7 @@ class BigIntTest : WordSpec({
 
             val r = BigInt.basePowK(10u, n.mag.size)
             val rSquare = BigInt.basePowK(10u, n.mag.size * 2)
-            val v = -(n modInverse r)
+            val v = r - (n modInverse r)
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
 
@@ -249,7 +282,7 @@ class BigIntTest : WordSpec({
 
             val r = BigInt.basePowK(10u, n.mag.size)
             val rSquare = BigInt.basePowK(10u, n.mag.size * 2)
-            val v = -(n modInverse r)
+            val v = r - (n modInverse r)
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
             val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 10u), n, v)
@@ -262,9 +295,9 @@ class BigIntTest : WordSpec({
             val n = BigInt.valueOf("3233", 10).toBase(2u)
 
             // Convert to base 2
-            val r = BigInt.twoPowK(n.mag.size)
-            val rSquare = BigInt.twoPowK(n.mag.size * 2)
-            val v = -(n modInverse r)
+            val r = BigInt.basePowK(2u, n.mag.size)
+            val rSquare = BigInt.basePowK(2u, n.mag.size * 2)
+            val v = r - (n modInverse r)
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
 
@@ -275,9 +308,9 @@ class BigIntTest : WordSpec({
             val a = BigInt.valueOf("413", 10).toBase(2u)
             val n = BigInt.valueOf("3233", 10).toBase(2u)
 
-            val r = BigInt.twoPowK(n.mag.size)
-            val rSquare = BigInt.twoPowK(n.mag.size * 2)
-            val v = -(n modInverse r)
+            val r = BigInt.basePowK(2u, n.mag.size)
+            val rSquare = BigInt.basePowK(2u, n.mag.size * 2)
+            val v = r - (n modInverse r)
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
             val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 2u), n, v)
@@ -303,6 +336,32 @@ class BigIntTest : WordSpec({
             val a = BigInt.valueOf("314", 10)
             val c = BigInt.valueOf("14", 10)
             a remShl 2 shouldBe c
+        }
+
+        "4126767 remShl 5 = 26767 in base 10 (equivalent to mod 100000)" {
+            val a = BigInt.valueOf("4126767", 10)
+            val c = BigInt.valueOf("26767", 10)
+            a remShl 5 shouldBe c
+        }
+
+        "-4126767 remShl 5 = -26767 in base 10 (equivalent to mod 100000)" {
+            val a = BigInt.valueOf("-4126767", 10)
+            val c = BigInt.valueOf("-26767", 10)
+            a remShl 5 shouldBe c
+        }
+
+        "10 remShl 5 = 10 in base 10 (equivalent to mod 100000)" {
+            val a = BigInt.valueOf("10", 10)
+            val c = BigInt.valueOf("10", 10)
+            a remShl 5 shouldBe c
+        }
+
+        "100000 remShl 5 = 0 in base 10 (equivalent to mod 100000)" {
+            val a = BigInt.valueOf("100000", 10)
+            val c = BigInt.valueOf("0", 10)
+
+            val result = a remShl 5
+            result shouldBe c
         }
     }
 })
