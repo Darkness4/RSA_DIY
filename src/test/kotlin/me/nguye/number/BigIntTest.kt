@@ -1,8 +1,6 @@
 package me.nguye.number
 
 import io.kotest.core.spec.style.WordSpec
-import io.kotest.matchers.comparables.shouldBeGreaterThan
-import io.kotest.matchers.comparables.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 
 @ExperimentalUnsignedTypes
@@ -227,15 +225,7 @@ class BigIntTest : WordSpec({
             val n = BigInt.valueOf("3233", 10)
 
             val expected = BigInt.valueOf("65", 10)
-            c.modPow(d, n) shouldBe expected.toBase(2u)
-        }
-        "2 ^ 23 % 55 = 8" {
-            val c = BigInt.valueOf("2", 10)
-            val d = BigInt.valueOf("23", 10)
-            val n = BigInt.valueOf("55", 10)
-
-            val expected = BigInt.valueOf("8", 10)
-            c.modPow(d, n) shouldBe expected.toBase(2u)
+            c.modPow(d, n) shouldBe expected
         }
     }
 
@@ -246,12 +236,10 @@ class BigIntTest : WordSpec({
 
             val r = BigInt.basePowK(10u, n.mag.size)
             val rSquare = BigInt.basePowK(10u, n.mag.size * 2)
-            val (gcd, rPrime, v) = r extendedGcd n
-            val negativeV = BigInt(v.mag, v.base, -v.sign)
+            val v = -(n modInverse r)
 
-            val aMgy = a.montgomeryTimes(rSquare, n, negativeV)
+            val aMgy = a.montgomeryTimes(rSquare, n, v)
 
-            gcd shouldBe BigInt.one(10u)
             aMgy shouldBe BigInt.valueOf("1459", 10)
         }
 
@@ -261,13 +249,11 @@ class BigIntTest : WordSpec({
 
             val r = BigInt.basePowK(10u, n.mag.size)
             val rSquare = BigInt.basePowK(10u, n.mag.size * 2)
-            val (gcd, rPrime, v) = r extendedGcd n
-            val negativeV = BigInt(v.mag, v.base, -v.sign)
+            val v = -(n modInverse r)
 
-            val aMgy = a.montgomeryTimes(rSquare, n, negativeV)
-            val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 10u), n, negativeV)
+            val aMgy = a.montgomeryTimes(rSquare, n, v)
+            val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 10u), n, v)
 
-            gcd shouldBe BigInt.one(10u)
             aNotMgy shouldBe a
         }
 
@@ -278,12 +264,10 @@ class BigIntTest : WordSpec({
             // Convert to base 2
             val r = BigInt.twoPowK(n.mag.size)
             val rSquare = BigInt.twoPowK(n.mag.size * 2)
-            val (gcd, rPrime, v) = r extendedGcd n
-            val negativeV = BigInt(v.mag, v.base, -v.sign)
+            val v = -(n modInverse r)
 
-            val aMgy = a.montgomeryTimes(rSquare, n, negativeV)
+            val aMgy = a.montgomeryTimes(rSquare, n, v)
 
-            gcd shouldBe BigInt.one(2u)
             aMgy shouldBe BigInt.valueOf("789", 10).toBase(2u)
         }
 
@@ -293,13 +277,11 @@ class BigIntTest : WordSpec({
 
             val r = BigInt.twoPowK(n.mag.size)
             val rSquare = BigInt.twoPowK(n.mag.size * 2)
-            val (gcd, rPrime, v) = r extendedGcd n
-            val negativeV = BigInt(v.mag, v.base, -v.sign)
+            val v = -(n modInverse r)
 
-            val aMgy = a.montgomeryTimes(rSquare, n, negativeV)
-            val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 2u), n, negativeV)
+            val aMgy = a.montgomeryTimes(rSquare, n, v)
+            val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 2u), n, v)
 
-            gcd shouldBe BigInt.one(2u)
             aNotMgy shouldBe a
         }
     }
@@ -321,28 +303,6 @@ class BigIntTest : WordSpec({
             val a = BigInt.valueOf("314", 10)
             val c = BigInt.valueOf("14", 10)
             a remShl 2 shouldBe c
-        }
-    }
-
-    "modInverse" should {
-        "10 * x = 1 mod 17 gives 12" {
-            val a = BigInt.valueOf("10", 10)
-            val b = BigInt.valueOf("17", 10)
-
-            val expected = BigInt.valueOf("12", 10)
-            a modInverse b shouldBe expected
-        }
-    }
-
-    "extendedGCD" should {
-        "10 extendedGCD 17 gives 1, -5, 3" {
-            val a = BigInt.valueOf("10", 10)
-            val b = BigInt.valueOf("17", 10)
-
-            val expected = Triple(BigInt.valueOf("1", 10),
-                BigInt.valueOf("-5", 10),
-                BigInt.valueOf("3", 10))
-            a extendedGcd b shouldBe expected
         }
     }
 })
