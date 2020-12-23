@@ -179,17 +179,6 @@ class BigIntTest : WordSpec({
             result shouldBe BigInt.valueOf("100010", 2)
         }
 
-        "convert to Base16 successfully" {
-            // Arrange
-            val number = BigInt.valueOf("55", 10)
-
-            // Act
-            val result = number.toBase(16u)
-
-            // Assert
-            result shouldBe BigInt.valueOf("37", 16)
-        }
-
         "convert to Base8 successfully" {
             // Arrange
             val number = BigInt.valueOf("55", 10)
@@ -227,7 +216,33 @@ class BigIntTest : WordSpec({
     }
 
     "modPow" should {
-        "2790 ^ 413 % 3233 = 65" {
+        "2790 ^ 413 % 3233 = 65 in base 64" {
+            val c = BigInt.valueOf("25I", 36).fromBase2toBase(64u)
+            val d = BigInt.valueOf("BH", 36).fromBase2toBase(64u)
+            val n = BigInt.valueOf("2HT", 36).fromBase2toBase(64u)
+
+            val expected = BigInt.valueOf("1T", 36).fromBase2toBase(64u)
+            c.modPow(d, n) shouldBe expected
+        }
+        "2790 ^ 413 % 3233 = 65 in base 36" {
+            val c = BigInt.valueOf("25I", 36)
+            val d = BigInt.valueOf("BH", 36)
+            val n = BigInt.valueOf("2HT", 36)
+
+            val expected = BigInt.valueOf("1T", 36)
+            c.modPow(d, n) shouldBe expected
+        }
+
+        "2790 ^ 413 % 3233 = 65 in base 16" {
+            val c = BigInt.valueOf("AE6", 16)
+            val d = BigInt.valueOf("19D", 16)
+            val n = BigInt.valueOf("CA1", 16)
+
+            val expected = BigInt.valueOf("41", 16)
+            c.modPow(d, n) shouldBe expected
+        }
+
+        "2790 ^ 413 % 3233 = 65 in base 10" {
             val c = BigInt.valueOf("2790", 10)
             val d = BigInt.valueOf("413", 10)
             val n = BigInt.valueOf("3233", 10)
@@ -242,6 +257,15 @@ class BigIntTest : WordSpec({
             val n = BigInt.valueOf("3233", 10).toBase(2u)
 
             val expected = BigInt.valueOf("65", 10).toBase(2u)
+            c.modPow(d, n) shouldBe expected
+        }
+
+        "2790 ^ 413 % 3233 = 65 in base 100000" {
+            val c = BigInt(uintArrayOf(2790u), 10000u)
+            val d = BigInt.valueOf("413", 10)
+            val n = BigInt(uintArrayOf(3233u), 10000u)
+
+            val expected = BigInt(uintArrayOf(65u), 10000u)
             c.modPow(d, n) shouldBe expected
         }
     }
@@ -262,13 +286,24 @@ class BigIntTest : WordSpec({
         }
     }
 
+    "modInverse" should {
+        "3233 modInverse 4096" {
+            val n = BigInt.valueOf("3233", 10).toBase(2u)
+            val r = BigInt.basePowK(2u, n.mag.size)
+            val v = n modInverse r
+            println(v.toLong())
+
+            v shouldBe BigInt.valueOf("1889", 10).toBase(2u)
+        }
+    }
+
     "montgomeryTimes" should {
         "A to phi(A) with A = 413 * 10000 mod 3233 = 1459 in base 10" {
             val a = BigInt.valueOf("413", 10)
             val n = BigInt.valueOf("3233", 10)
 
             val r = BigInt.basePowK(10u, n.mag.size)
-            val rSquare = BigInt.basePowK(10u, n.mag.size * 2)
+            val rSquare = BigInt.basePowK(10u, n.mag.size * 2) % n
             val v = r - (n modInverse r)
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
@@ -281,7 +316,7 @@ class BigIntTest : WordSpec({
             val n = BigInt.valueOf("3233", 10)
 
             val r = BigInt.basePowK(10u, n.mag.size)
-            val rSquare = BigInt.basePowK(10u, n.mag.size * 2)
+            val rSquare = BigInt.basePowK(10u, n.mag.size * 2) % n
             val v = r - (n modInverse r)
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
@@ -296,7 +331,7 @@ class BigIntTest : WordSpec({
 
             // Convert to base 2
             val r = BigInt.basePowK(2u, n.mag.size)
-            val rSquare = BigInt.basePowK(2u, n.mag.size * 2)
+            val rSquare = BigInt.basePowK(2u, n.mag.size * 2) % n
             val v = r - (n modInverse r)
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
@@ -309,7 +344,7 @@ class BigIntTest : WordSpec({
             val n = BigInt.valueOf("3233", 10).toBase(2u)
 
             val r = BigInt.basePowK(2u, n.mag.size)
-            val rSquare = BigInt.basePowK(2u, n.mag.size * 2)
+            val rSquare = BigInt.basePowK(2u, n.mag.size * 2) % n
             val v = r - (n modInverse r)
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
