@@ -10,7 +10,7 @@ class BigIntTest : WordSpec({
     "basePowK" should {
         "2^5" {
             val result = BigInt.basePowK(2u, 5)
-            result shouldBe BigInt.valueOf("32", 10).toBase(2u)
+            result shouldBe BigInt.valueOf("32", 10).toBase2()
         }
     }
     "plus" should {
@@ -167,37 +167,13 @@ class BigIntTest : WordSpec({
         }
     }
 
-    "toBase" should {
-        "convert to Base2 successfully" {
-            // Arrange
-            val number = BigInt.valueOf("34", 10)
-
-            // Act
-            val result = number.toBase(2u)
-
-            // Assert
-            result shouldBe BigInt.valueOf("100010", 2)
-        }
-
-        "convert to Base8 successfully" {
-            // Arrange
-            val number = BigInt.valueOf("55", 10)
-
-            // Act
-            val result = number.toBase(8u)
-
-            // Assert
-            result shouldBe BigInt.valueOf("67", 8)
-        }
-    }
-
-    "fromBase2toBase" should {
+    "toBase2powK" should {
         "convert to Base16 successfully" {
             // Arrange
             val number = BigInt.valueOf("34", 10)
 
             // Act
-            val result = number.fromBase2toBase(16u)
+            val result = number.toBase2PowK(4)
 
             // Assert
             result shouldBe BigInt.valueOf("22", 16)
@@ -208,7 +184,7 @@ class BigIntTest : WordSpec({
             val number = BigInt.valueOf("34", 10)
 
             // Act
-            val result = number.fromBase2toBase(8u)
+            val result = number.toBase2PowK(3)
 
             // Assert
             result shouldBe BigInt.valueOf("42", 8)
@@ -217,11 +193,11 @@ class BigIntTest : WordSpec({
 
     "modPow" should {
         "2790 ^ 413 % 3233 = 65 in base 64" {
-            val c = BigInt.valueOf("25I", 36).fromBase2toBase(64u)
-            val d = BigInt.valueOf("BH", 36).fromBase2toBase(64u)
-            val n = BigInt.valueOf("2HT", 36).fromBase2toBase(64u)
+            val c = BigInt.valueOf("25I", 36).toBase2PowK(6)
+            val d = BigInt.valueOf("BH", 36).toBase2PowK(6)
+            val n = BigInt.valueOf("2HT", 36).toBase2PowK(6)
 
-            val expected = BigInt.valueOf("1T", 36).fromBase2toBase(64u)
+            val expected = BigInt.valueOf("1T", 36).toBase2PowK(6)
             c.modPow(d, n) shouldBe expected
         }
         "2790 ^ 413 % 3233 = 65 in base 36" {
@@ -252,17 +228,17 @@ class BigIntTest : WordSpec({
         }
 
         "2790 ^ 413 % 3233 = 65 in base 2" {
-            val c = BigInt.valueOf("2790", 10).toBase(2u)
-            val d = BigInt.valueOf("413", 10).toBase(2u)
-            val n = BigInt.valueOf("3233", 10).toBase(2u)
+            val c = BigInt.valueOf("2790", 10).toBase2()
+            val d = BigInt.valueOf("413", 10).toBase2()
+            val n = BigInt.valueOf("3233", 10).toBase2()
 
-            val expected = BigInt.valueOf("65", 10).toBase(2u)
+            val expected = BigInt.valueOf("65", 10).toBase2()
             c.modPow(d, n) shouldBe expected
         }
 
         "2790 ^ 413 % 3233 = 65 in base 100000" {
             val c = BigInt(uintArrayOf(2790u), 10000u)
-            val d = BigInt.valueOf("413", 10)
+            val d = BigInt(uintArrayOf(413u), 10000u)
             val n = BigInt(uintArrayOf(3233u), 10000u)
 
             val expected = BigInt(uintArrayOf(65u), 10000u)
@@ -277,6 +253,18 @@ class BigIntTest : WordSpec({
             val expected = BigInt.valueOf("123", 10)
             a shl 2 shouldBe expected
         }
+        "12345 shl 4 in base 10 = 1" {
+            val a = BigInt.valueOf("12345", 10)
+
+            val expected = BigInt.valueOf("1", 10)
+            a shl 4 shouldBe expected
+        }
+        "12345 shl 5 in base 10 = 0" {
+            val a = BigInt.valueOf("12345", 10)
+
+            val expected = BigInt.valueOf("0", 10)
+            a shl 5 shouldBe expected
+        }
 
         "-12345 shl 2 in base 10 = -123" {
             val a = BigInt.valueOf("-12345", 10)
@@ -288,12 +276,12 @@ class BigIntTest : WordSpec({
 
     "modInverse" should {
         "3233 modInverse 4096" {
-            val n = BigInt.valueOf("3233", 10).toBase(2u)
+            val n = BigInt.valueOf("3233", 10).toBase2()
             val r = BigInt.basePowK(2u, n.mag.size)
             val v = n modInverse r
             println(v.toLong())
 
-            v shouldBe BigInt.valueOf("1889", 10).toBase(2u)
+            v shouldBe BigInt.valueOf("1889", 10).toBase2()
         }
     }
 
@@ -326,8 +314,8 @@ class BigIntTest : WordSpec({
         }
 
         "A to phi(A) with A = 413 * 4096 mod 3233 = 789" {
-            val a = BigInt.valueOf("413", 10).toBase(2u)
-            val n = BigInt.valueOf("3233", 10).toBase(2u)
+            val a = BigInt.valueOf("413", 10).toBase2()
+            val n = BigInt.valueOf("3233", 10).toBase2()
 
             // Convert to base 2
             val r = BigInt.basePowK(2u, n.mag.size)
@@ -336,12 +324,12 @@ class BigIntTest : WordSpec({
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
 
-            aMgy shouldBe BigInt.valueOf("789", 10).toBase(2u)
+            aMgy shouldBe BigInt.valueOf("789", 10).toBase2()
         }
 
         "phi(A) to A with A = 413 * 4096 mod 3233" {
-            val a = BigInt.valueOf("413", 10).toBase(2u)
-            val n = BigInt.valueOf("3233", 10).toBase(2u)
+            val a = BigInt.valueOf("413", 10).toBase2()
+            val n = BigInt.valueOf("3233", 10).toBase2()
 
             val r = BigInt.basePowK(2u, n.mag.size)
             val rSquare = BigInt.basePowK(2u, n.mag.size * 2) % n
@@ -356,8 +344,8 @@ class BigIntTest : WordSpec({
 
     "remShl" should {
         "17 remShl 3 = 1 in base 2 (equivalent to mod 8)" {
-            val a = BigInt.valueOf("17", 10).toBase(2u)
-            val c = BigInt.valueOf("1", 10).toBase(2u)
+            val a = BigInt.valueOf("17", 10).toBase2()
+            val c = BigInt.valueOf("1", 10).toBase2()
             a remShl 3 shouldBe c
         }
 
