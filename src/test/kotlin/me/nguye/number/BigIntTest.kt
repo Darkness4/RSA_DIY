@@ -2,7 +2,12 @@ package me.nguye.number
 
 import io.kotest.core.spec.style.WordSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.property.Exhaustive
+import io.kotest.property.checkAll
+import io.kotest.property.exhaustive.ints
+import java.io.File
 import kotlin.time.ExperimentalTime
+import kotlin.time.measureTime
 
 @ExperimentalTime
 @ExperimentalUnsignedTypes
@@ -105,6 +110,13 @@ class BigIntTest : WordSpec({
     }
 
     "times" should {
+        "{127839} * {127839} = {97601, 124685} in base 2^17" {
+            val a = BigInt(uintArrayOf(127839u), 131072u)
+            val b = BigInt(uintArrayOf(127839u), 131072u)
+            val c = BigInt(uintArrayOf(97601u, 124685u), 131072u)
+            a * b shouldBe c
+        }
+
         "2 * 1 = 2" {
             val a = BigInt.valueOf("2", 10)
             val b = BigInt.valueOf("1", 10)
@@ -167,7 +179,7 @@ class BigIntTest : WordSpec({
         }
     }
 
-    "toBase2powK" should {
+    "toBase2PowK" should {
         "convert to Base16 successfully" {
             // Arrange
             val number = BigInt.valueOf("34", 10)
@@ -189,9 +201,68 @@ class BigIntTest : WordSpec({
             // Assert
             result shouldBe BigInt.valueOf("42", 8)
         }
+
+        "benchmark" {
+            timeout = Long.MAX_VALUE
+            checkAll(Exhaustive.ints(1..3)) { iteration ->
+                val writer = File("toBase2PowK_$iteration.txt").printWriter()
+                writer.use { out ->
+                    checkAll(Exhaustive.ints(1..31)) { k ->
+                        measureTime {
+                            BigInt.valueOf("10100101100111110010110010110101010011101011001111000011011001000010011101100101011011101000101101010011101010011000000110110000111011110110000001001100110111000001101110011101001100111010011110111001110000110110001001000001001011001100001101010100101110110101001000000110111101100101010111111101010011001110100001100100101101111100101010111111100001111101110010111110111010010000110110011010100110110101101001000011000101111000001100001111010011011100100001101000111100011010001101101100001110000100100100100101001101111001010010101100100101111100100100100001111100010111011110010001001001110001110011111001010001010000101001100000101000011101111110000000100000100010000010011101001111111001111001101011111101000011000110111111100000001101110111001010011011000100100110011011110010111110101001110011000101011101111001011101010110000100011011001101001101100100101010111010011010101011000110100000111001011110010111111101010100111010110010101010111101101110110011011011010001111000011101010110011001010110100111110000101110", 2).toBase2PowK(k)
+                        }.also {
+                            println("Base 2^$k, Time elapsed: $it")
+                            out.println("$k\t${it.toLongNanoseconds()}")
+                        }
+                    }
+                }
+            }
+        }
+
+        /*"benchmark from base 10" {
+            timeout = Long.MAX_VALUE
+            checkAll(Exhaustive.ints(1..3)) { iteration ->
+                val writer = File("FromBase10toBase2PowK_$iteration.txt").printWriter()
+                writer.use { out ->
+                    checkAll(Exhaustive.ints(1..31)) { k ->
+                        measureTime {
+                            BigInt.valueOf("29075891562236853554062599128328159590183028980552101085544262704780053549534418578507236855720567419975163282590047789761592080601496152946952125090156744601158717295382511431523328696904736152776043566580142204885912443831792077784183631398221826664611547239837936198939692178263167338882034607609865731118", 10).toBase2PowK(k)
+                        }.also {
+                            println("Base 2^$k, Time elapsed: $it")
+                            out.println("$k\t${it.toLongNanoseconds()}")
+                        }
+                    }
+                }
+            }
+        }*/
+
+        /*"benchmark from base 16" {
+            timeout = Long.MAX_VALUE
+            checkAll(Exhaustive.ints(1..3)) { iteration ->
+                val writer = File("FromBase16toBase2PowK_$iteration.txt").printWriter()
+                writer.use { out ->
+                    checkAll(Exhaustive.ints(1..31)) { k ->
+                        measureTime {
+                            BigInt.valueOf("2967CB2D53ACF0D909D95BA2D4EA606C3BD8133706E74CE9EE70D8904B30D52ED481BD957F533A192DF2AFE1F72FBA4366A6D690C5E0C3D3721A3C68DB0E12494DE52B25F2487C5DE449C73E5142982877E02088274FE79AFD0C6FE037729B1266F2FA9CC577975611B34D92AE9AAC6839797F54EB2ABDBB36D1E1D5995A7C2E", 16).toBase2PowK(k)
+                        }.also {
+                            println("Base 2^$k, Time elapsed: $it")
+                            out.println("$k\t${it.toLongNanoseconds()}")
+                        }
+                    }
+                }
+            }
+        }*/
     }
 
     "modPow" should {
+        "2790 ^ 413 % 3233 = 65 in base 2^17" {
+            val c = BigInt.valueOf("25I", 36).toBase2PowK(17)
+            val d = BigInt.valueOf("BH", 36).toBase2PowK(17)
+            val n = BigInt.valueOf("2HT", 36).toBase2PowK(17)
+
+            val expected = BigInt.valueOf("1T", 36).toBase2PowK(17)
+            c.modPow(d, n) shouldBe expected
+        }
         "2790 ^ 413 % 3233 = 65 in base 64" {
             val c = BigInt.valueOf("25I", 36).toBase2PowK(6)
             val d = BigInt.valueOf("BH", 36).toBase2PowK(6)
@@ -283,6 +354,15 @@ class BigIntTest : WordSpec({
 
             v shouldBe BigInt.valueOf("1889", 10).toBase2()
         }
+
+        "3233 modInverse 131072 in base 2^17" {
+            val n = BigInt.valueOf("3233", 10).toBase2PowK(17)
+            val r = BigInt.basePowK(131072u, n.mag.size)
+            val v = n modInverse r
+            println(v.toLong())
+
+            v shouldBe BigInt(uintArrayOf(55137u), 131072u)
+        }
     }
 
     "montgomeryTimes" should {
@@ -337,6 +417,20 @@ class BigIntTest : WordSpec({
 
             val aMgy = a.montgomeryTimes(rSquare, n, v)
             val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 2u), n, v)
+
+            aNotMgy shouldBe a
+        }
+
+        "phi(A) to A with A = 413 * 10000 mod 3233 = 1459 in base 2^17" {
+            val a = BigInt.valueOf("413", 10).toBase2PowK(17)
+            val n = BigInt.valueOf("3233", 10).toBase2PowK(17)
+
+            val r = BigInt.basePowK(131072u, n.mag.size)
+            val rSquare = BigInt.basePowK(131072u, n.mag.size * 2) % n
+            val v = r - (n modInverse r)
+
+            val aMgy = a.montgomeryTimes(rSquare, n, v)
+            val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 131072u), n, v)
 
             aNotMgy shouldBe a
         }

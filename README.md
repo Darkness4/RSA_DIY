@@ -29,6 +29,8 @@ Ce qui donne dans l'objet :
 
 La raison du type du signe dans `Int` est que, pendant le calcul de `times` (ou `*`), le `sign` est ``this.sign * other.sign`.
 
+<div style="page-break-after: always; break-after: page;"></div>
+
 ## Instancier `BigInt`
 
 ### Constructeur
@@ -62,6 +64,8 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) {
     }
 }
 ```
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 ### Parser un String (`BigInt.valueOf`)
 
@@ -179,6 +183,8 @@ class ImNotASingletonBut {
 ImNotASingletonBut.hello()
 ```
 
+<div style="page-break-after: always; break-after: page;"></div>
+
 ## Comparaison
 
 ### Implémenter `Comparable<BigInt>`
@@ -256,6 +262,8 @@ override fun equals(other: Any?): Boolean {
 }
 ```
 
+<div style="page-break-after: always; break-after: page;"></div>
+
 ## Opérateurs basique
 
 ### `unaryMinus` et `unaryPlus`
@@ -298,13 +306,13 @@ Allons voir l'implémentation de `addMagnitude`.
 ```kotlin
 private infix fun addMagnitude(other: BigInt): UIntArray {
     val result = UIntArray(max(mag.size, other.mag.size) + 1)
-    var carry = 0u
+    var carry = 0uL
     var i = 0
 
     // Add common parts of both numbers
     while (i < mag.size && i < other.mag.size) {
         val sum = mag[i] + other.mag[i] + carry
-        result[i] = sum % base
+        result[i] = (sum % base).toUInt()
         carry = sum / base
         i++
     }
@@ -312,19 +320,19 @@ private infix fun addMagnitude(other: BigInt): UIntArray {
     // Add the last part
     while (i < mag.size) {
         val sum = mag[i] + carry
-        result[i] = sum % base
+        result[i] = (sum % base).toUInt()
         carry = sum / base
         i++
     }
     while (i < other.mag.size) {
         val sum = other.mag[i] + carry
-        result[i] = sum % other.base
+        result[i] = (sum % other.base).toUInt()
         carry = sum / base
         i++
     }
 
     // Add the last carry (if exists)
-    if (carry > 0u) result[i] = carry
+    if (carry > 0u) result[i] = carry.toUInt()
     return result
 }
 ```
@@ -335,6 +343,8 @@ Ici, il s'agit de l'algorithme de l'addition classique :
 
 - `val sum = mag[i] + other.mag[i] + carry` est assez explicite, nous additionnons digits par digits.
 - `result[i] = sum % base` permet d'éviter l'overflow de la base. Si cela overflow (`sum / base > 0`), alors nous mettons cet overflow dans le carry : `carry = sum / base`.
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 ### `minus`
 
@@ -364,7 +374,7 @@ Allons voir `subtractMagnitude`.
 ```kotlin
 private infix fun subtractMagnitude(other: BigInt): UIntArray {
     val result = UIntArray(max(mag.size, other.mag.size))
-    var carry: UInt = 0u
+    var carry = 0uL
 
     val (largest, smallest) = if (this.compareUnsignedTo(other) < 0) {
         other to this
@@ -374,22 +384,28 @@ private infix fun subtractMagnitude(other: BigInt): UIntArray {
 
     // Subtract common parts of both numbers
     for (i in smallest.mag.indices) {
-        var sub: UInt = largest.mag[i] - smallest.mag[i] - carry
-        carry = if (largest.mag[i] < smallest.mag[i] + carry) {  // Is sub < 0 ?
-            sub += base
+        var sub: ULong
+        carry = if (largest.mag[i] < carry + smallest.mag[i]) {
+            sub = largest.mag[i] + (largest.base - carry - smallest.mag[i])
             1u
-        } else 0u
-        result[i] = sub
+        } else {
+            sub = largest.mag[i] - smallest.mag[i] - carry
+            0u
+        }
+        result[i] = sub.toUInt()
     }
 
     // Subtract the last part
     for (i in smallest.mag.size until largest.mag.size) {
-        var sub: UInt = largest.mag[i] - carry
-        carry = if (largest.mag[i] < carry) {  // Is sub < 0 ?
-            sub += base
+        var sub: ULong
+        carry = if (largest.mag[i] < carry) {
+            sub = largest.mag[i] + (largest.base - carry)
             1u
-        } else 0u
-        result[i] = sub
+        } else {
+            sub = largest.mag[i] - carry
+            0u
+        }
+        result[i] = sub.toUInt()
     }
     return result
 }
@@ -402,6 +418,8 @@ L'algorithme de la soustraction **non signé** est également classique et assez
   - `if (largest.mag[i] < smallest.mag[i] + carry)` vérifie s'il existe un carry (e.g : "sub est-il négatif ?" ou "sub est-il en underflow ?").
     - Si oui, alors on fait remontrer dans les nombres positifs en faisans `sub += base` et on stocke (`1u`) dans le carry.
 - Finir par la dernière partie.
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 ### `times`
 
@@ -416,13 +434,13 @@ operator fun times(other: BigInt): BigInt {
 
     // Basic multiplication
     for (i in other.mag.indices) {
-        var carry: UInt = 0u
+        var carry = 0uL
         for (j in mag.indices) {
-            result[i + j] += other.mag[i] * mag[j] + carry
-            carry = result[i + j] / base
-            result[i + j] = result[i + j] % base
+            val sum: ULong = result[i + j].toULong() + other.mag[i].toULong() * mag[j].toULong() + carry
+            carry = sum / base
+            result[i + j] = (sum % base).toUInt()
         }
-        result[i + mag.size] = carry
+        result[i + mag.size] = carry.toUInt()
     }
 
     return BigInt(result, base, sign * other.sign)
@@ -432,6 +450,8 @@ operator fun times(other: BigInt): BigInt {
 Il s'agit du cas d'école. La seule différence est `carry = result[i + j] / base` et `result[i + j] = result[i + j] % base`.
 
 De la même manière que `plus` et `minus`, `% base` et `/ base` permet d'éviter l'overflow de la base. `% base` va faire que le nombre dépasse pas la base et `/ base` récupère le carry.
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 ### `shl` ou littéralement shift left (pas bitwise)
 
@@ -482,6 +502,8 @@ fun basePowK(base: UInt, k: Int): BigInt {
     return BigInt(mag, base, 1)
 }
 ```
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 ### `div`
 
@@ -557,6 +579,8 @@ operator fun rem(other: BigInt): BigInt {
 }
 ```
 
+<div style="page-break-after: always; break-after: page;"></div>
+
 ## `modInverse` avec pgcd(a, n) = 1
 
 Maintenant, que nous avons implémenté `div`, nous pouvons implémenter `modInverse` selon l'[algorithme d'Euclide étendue](https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm#Modular_integers) sachant `gcd(this, other) == 1` :
@@ -589,6 +613,8 @@ infix fun modInverse(other: BigInt): BigInt {
 ```
 
 Notez `.let`, cela permet de faire `(oldR, r) = (r, oldR - q * r)` en séquentiel sans passer par une variable temporaire.
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 ## Algorithmie sous la forme de Mongomery
 
@@ -651,6 +677,8 @@ Donc notre test est :
     aMgy shouldBe BigInt.valueOf("789", 10).toBase2()
 }
 ```
+
+Note : Le test est sous format [Kotest](https://kotest.io).
 
 Nous pouvons également tester en base 10 :
 
@@ -715,6 +743,8 @@ Egalement pour `modInverse` !
 
 Pour que le calcul de $\bmod n$, ou plus précisément $/n$, soit efficace, il faut que $n$ soit en base $2^k$.
 
+<div style="page-break-after: always; break-after: page;"></div>
+
 ### `modPow`, exponentiation modulaire avec la réduction de Montgomery
 
 L'algorithme utilisé est [*square-and-multiply*](https://en.wikipedia.org/wiki/Exponentiation_by_squaring).
@@ -778,6 +808,8 @@ Faisons ligne par ligne :
 
 - `p.montgomeryTimes(one, n, v)` est la mise sous la forme "standard".
 
+<div style="page-break-after: always; break-after: page;"></div>
+
 ### Tests de `modPow`
 
 #### Test 1 : Base 16
@@ -810,10 +842,10 @@ Faisons ligne par ligne :
 fun main() {
     val workingBase = 16
 
-    val d = BigInt.valueOf("942E315D898EA7934F2B8C233E0529E7D4E32B206679EBBA31D18F803F077C3AC9599226A0279FACF10B9958507ACF7E2F43811E69E90A4D185E962D211240245FF4FB9873731D0655FE559ED2FF3C9412B1A64CB3AA510A4F5DAA9C01410AED01482F493545BDE0AE978F972B39DC7691B67C06D645A164511EDA0CAB6A68DD", workingBase)
-    val c1 = BigInt.valueOf("2967CB2D53ACF0D909D95BA2D4EA606C3BD8133706E74CE9EE70D8904B30D52ED481BD957F533A192DF2AFE1F72FBA4366A6D690C5E0C3D3721A3C68DB0E12494DE52B25F2487C5DE449C73E5142982877E02088274FE79AFD0C6FE037729B1266F2FA9CC577975611B34D92AE9AAC6839797F54EB2ABDBB36D1E1D5995A7C2E", workingBase)
-    val c2 = BigInt.valueOf("1AD59925CA4330FE3E7CAB199E04441725CE8641B1DF11C56A4ADB0EA0AEC117DE4045C9EF256E6FBBD9CCC35AAB317EBD13E342E3B664369CAAF5E62358D249E939B9D1DA984BFFEE8DE1EE87993C186FCAB0CBFF867EA69E15AE50A402FBC5818BFA9D077CAEC64F4AC96859961C294CADDBC24C2CFEB1E01DFB632ACFFE48", workingBase)
-    val n = BigInt.valueOf("1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000DC00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002A7B", workingBase)
+    val d = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c1 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c2 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val n = BigInt.valueOf("...", workingBase)  // Entrée tronquée
 
     println("decrypting")
     measureTime {
@@ -833,6 +865,8 @@ Time Elapsed : 40.2s
 ```
 
 Résultat satisfaisant.
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 #### Test 2 : Base 16 ramené à la base 65536
 
@@ -864,10 +898,10 @@ Résultat satisfaisant.
 fun main() {
     val workingBase = 16
 
-    val d = BigInt.valueOf("942E315D898EA7934F2B8C233E0529E7D4E32B206679EBBA31D18F803F077C3AC9599226A0279FACF10B9958507ACF7E2F43811E69E90A4D185E962D211240245FF4FB9873731D0655FE559ED2FF3C9412B1A64CB3AA510A4F5DAA9C01410AED01482F493545BDE0AE978F972B39DC7691B67C06D645A164511EDA0CAB6A68DD", workingBase).toBase2PowK(16)
-    val c1 = BigInt.valueOf("2967CB2D53ACF0D909D95BA2D4EA606C3BD8133706E74CE9EE70D8904B30D52ED481BD957F533A192DF2AFE1F72FBA4366A6D690C5E0C3D3721A3C68DB0E12494DE52B25F2487C5DE449C73E5142982877E02088274FE79AFD0C6FE037729B1266F2FA9CC577975611B34D92AE9AAC6839797F54EB2ABDBB36D1E1D5995A7C2E", workingBase).toBase2PowK(16)
-    val c2 = BigInt.valueOf("1AD59925CA4330FE3E7CAB199E04441725CE8641B1DF11C56A4ADB0EA0AEC117DE4045C9EF256E6FBBD9CCC35AAB317EBD13E342E3B664369CAAF5E62358D249E939B9D1DA984BFFEE8DE1EE87993C186FCAB0CBFF867EA69E15AE50A402FBC5818BFA9D077CAEC64F4AC96859961C294CADDBC24C2CFEB1E01DFB632ACFFE48", workingBase).toBase2PowK(16)
-    val n = BigInt.valueOf("1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000DC00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002A7B", workingBase).toBase2PowK(16)
+    val d = BigInt.valueOf("...", workingBase).toBase2PowK(16)  // Entrée tronquée
+    val c1 = BigInt.valueOf("...", workingBase).toBase2PowK(16)  // Entrée tronquée
+    val c2 = BigInt.valueOf("...", workingBase).toBase2PowK(16)  // Entrée tronquée
+    val n = BigInt.valueOf("...", workingBase).toBase2PowK(16)  // Entrée tronquée
 
     println("decrypting")
     measureTime {
@@ -887,6 +921,8 @@ Time Elapsed : 5.00s
 ```
 
 Résultat satisfaisant.
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 #### Test 3 : Base 10
 
@@ -918,10 +954,10 @@ Résultat satisfaisant.
 fun main() {
     val workingBase = 10
 
-    val d = BigInt.valueOf("104055844167107781248589752608920442121435852413004719607463950823987312821132759166809988685882849660028713452809154247360580185712259277529373755633843749387184470871012615224812078370633557809434904918225321388120741945280206181683834799019246740113882929623211747709365319857181807977455643688718851270877", workingBase)
-    val c1 = BigInt.valueOf("29075891562236853554062599128328159590183028980552101085544262704780053549534418578507236855720567419975163282590047789761592080601496152946952125090156744601158717295382511431523328696904736152776043566580142204885912443831792077784183631398221826664611547239837936198939692178263167338882034607609865731118", workingBase)
-    val c2 = BigInt.valueOf("18843734104175461747620056345977644339191851013945250885633407629936001206924360108249391255994307246258972445193033936764824225343511129353256115730527634053372059460757473302517539364833128267263875409044686455385132768623440613529456243041634873615584800113654178971954173164382380348803475710656333741640", workingBase)
-    val n = BigInt.valueOf("179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639477074095512480796227391561801824887394139579933613278628104952355769470429079061808809522886423955917442317693387325171135071792698344550223571732405562649211", workingBase)
+    val d = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c1 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c2 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val n = BigInt.valueOf("...", workingBase)  // Entrée tronquée
 
     println("decrypting")
     measureTime {
@@ -940,7 +976,9 @@ decrypting
 Time Elapsed : 305s
 ```
 
-Résultat satisfaisant.
+Résultat satisfaisant malgré le temps de traitement élevé.
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 #### Test 4 : Base 2
 
@@ -972,10 +1010,10 @@ Résultat satisfaisant.
 fun main() {
     val workingBase = 2
 
-    val d = BigInt.valueOf("1001010000101110001100010101110110001001100011101010011110010011010011110010101110001100001000110011111000000101001010011110011111010100111000110010101100100000011001100111100111101011101110100011000111010001100011111000000000111111000001110111110000111010110010010101100110010010001001101010000000100111100111111010110011110001000010111001100101011000010100000111101011001111011111100010111101000011100000010001111001101001111010010000101001001101000110000101111010010110001011010010000100010010010000000010010001011111111101001111101110011000011100110111001100011101000001100101010111111110010101011001111011010010111111110011110010010100000100101011000110100110010011001011001110101010010100010000101001001111010111011010101010011100000000010100000100001010111011010000000101001000001011110100100100110101010001011011110111100000101011101001011110001111100101110010101100111001110111000111011010010001101101100111110000000110110101100100010110100001011001000101000100011110110110100000110010101011011010100110100011011101", workingBase)
-    val c1 = BigInt.valueOf("10100101100111110010110010110101010011101011001111000011011001000010011101100101011011101000101101010011101010011000000110110000111011110110000001001100110111000001101110011101001100111010011110111001110000110110001001000001001011001100001101010100101110110101001000000110111101100101010111111101010011001110100001100100101101111100101010111111100001111101110010111110111010010000110110011010100110110101101001000011000101111000001100001111010011011100100001101000111100011010001101101100001110000100100100100101001101111001010010101100100101111100100100100001111100010111011110010001001001110001110011111001010001010000101001100000101000011101111110000000100000100010000010011101001111111001111001101011111101000011000110111111100000001101110111001010011011000100100110011011110010111110101001110011000101011101111001011101010110000100011011001101001101100100101010111010011010101011000110100000111001011110010111111101010100111010110010101010111101101110110011011011010001111000011101010110011001010110100111110000101110", workingBase)
-    val c2 = BigInt.valueOf("1101011010101100110010010010111001010010000110011000011111110001111100111110010101011000110011001111000000100010001000001011100100101110011101000011001000001101100011101111100010001110001010110101001001010110110110000111010100000101011101100000100010111110111100100000001000101110010011110111100100101011011100110111110111011110110011100110011000011010110101010101100110001011111101011110100010011111000110100001011100011101101100110010000110110100111001010101011110101111001100010001101011000110100100100100111101001001110011011100111010001110110101001100001001011111111111110111010001101111000011110111010000111100110010011110000011000011011111100101010110000110010111111111110000110011111101010011010011110000101011010111001010000101001000000001011111011110001011000000110001011111110101001110100000111011111001010111011000110010011110100101011001001011010000101100110010110000111000010100101001100101011011101101111000010010011000010110011111110101100011110000000011101111110110110001100101010110011111111111001001000", workingBase)
-    val n = BigInt.valueOf("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001101110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010101001111011", workingBase)
+    val d = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c1 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c2 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val n = BigInt.valueOf("...", workingBase)  // Entrée tronquée
 
     println("decrypting")
     measureTime {
@@ -994,7 +1032,9 @@ decrypting
 Time Elapsed : 495s
 ```
 
-Résultat satisfaisant.
+Résultat satisfaisant mais un temps trop élevé.
+
+<div style="page-break-after: always; break-after: page;"></div>
 
 ## `Rsa`
 
@@ -1009,3 +1049,210 @@ object Rsa {
 }
 ```
 
+### Benchmark
+
+Après les tests précédents, nous avons remarqué que la base 10 est plutôt lente, mais les bases en $2^k$ ont l'air d'être rapide selon nos hypothèses. (Car la division euclidienne est basé sur l'algorithme binary search).
+
+Par conséquent, nous allons tester différente base $2^k$
+
+#### Benchmark : $2790^{413} \bmod 3233$
+
+##### Paramètres
+
+- Base de travail : $2^k$ avec $k$ variant entre $[1, 64]$
+
+- Entrée :
+
+  ```txt
+  c = 2790
+  d = 413
+  n = 3233
+  ```
+
+- Attendu : `m = 65`
+
+##### Code / Protocole
+
+```kotlin
+    "(2790, 413, 3233)" When {
+        "decrypt" should {
+            "returns 65 in base 2^k from 1 to 31" {
+                checkAll(Exhaustive.ints(1..3)) { iteration ->
+                    val writer = File("output_2790_413_3233_2to64_$iteration.txt").printWriter()
+                    writer.use { out ->
+                        checkAll(Exhaustive.ints(1..31)) { k ->
+                            val c = BigInt.valueOf("101011100110", 2).toBase2PowK(k)
+                            val d = BigInt.valueOf("110011101", 2).toBase2PowK(k)
+                            val n = BigInt.valueOf("110010100001", 2).toBase2PowK(k)
+                            val expected = BigInt.valueOf("1000001", 2).toBase2PowK(k)
+
+                            var result: BigInt
+                            measureTime {
+                                result = Rsa.decrypt(c, d, n)
+                            }.also {
+                                println("Base 2^$k, m = $result, Time elapsed: $it")
+                                out.println("$k\t${it.toLongNanoseconds()}")
+                            }
+
+                            result shouldBe expected
+                        }
+                    }
+                }
+            }
+        }
+    }
+```
+
+Note : Le test est sous format [Kotest](https://kotest.io).
+
+##### Résultats
+
+```txt
+Base 2^1, m = 1000001, Time elapsed: 23.1ms
+Base 2^2, m = 1001, Time elapsed: 9.03ms
+Base 2^3, m = 101, Time elapsed: 3.61ms
+Base 2^4, m = 41, Time elapsed: 3.44ms
+Base 2^5, m = 21, Time elapsed: 2.61ms
+Base 2^6, m = {1, 1}, Time elapsed: 3.02ms
+Base 2^7, m = {65}, Time elapsed: 939us
+Base 2^8, m = {65}, Time elapsed: 2.67ms
+Base 2^9, m = {65}, Time elapsed: 1.08ms
+Base 2^10, m = {65}, Time elapsed: 951us
+Base 2^11, m = {65}, Time elapsed: 1.02ms
+Base 2^12, m = {65}, Time elapsed: 933us
+Base 2^13, m = {65}, Time elapsed: 1.09ms
+Base 2^14, m = {65}, Time elapsed: 823us
+Base 2^15, m = {65}, Time elapsed: 857us
+Base 2^16, m = {65}, Time elapsed: 883us
+Base 2^17, m = {65}, Time elapsed: 913us
+Base 2^18, m = {65}, Time elapsed: 823us
+Base 2^19, m = {65}, Time elapsed: 694us
+Base 2^20, m = {65}, Time elapsed: 947us
+Base 2^21, m = {65}, Time elapsed: 775us
+Base 2^22, m = {65}, Time elapsed: 1.69ms
+Base 2^23, m = {65}, Time elapsed: 1.68ms
+Base 2^24, m = {65}, Time elapsed: 1.20ms
+Base 2^25, m = {65}, Time elapsed: 1.64ms
+Base 2^26, m = {65}, Time elapsed: 1.80ms
+Base 2^27, m = {65}, Time elapsed: 1.42ms
+Base 2^28, m = {65}, Time elapsed: 1.08ms
+Base 2^29, m = {65}, Time elapsed: 1.37ms
+Base 2^30, m = {65}, Time elapsed: 968us
+Base 2^31, m = {65}, Time elapsed: 923us
+```
+
+En l'exécutant 3 fois :
+
+![output_2790_413_3233_2to64](assets/output_2790_413_3233_2to64.png)
+
+La première courbe *Try n°0* peut être plus élevé que les autres du fait que Java est compilé en Just-In-Time.
+
+<div style="page-break-after: always; break-after: page;"></div>
+
+#### Benchmark Grand Nombre
+
+##### Paramètres
+
+- Base de travail : $2^k$ avec $k$ variant entre $[1, 64]$
+
+- Entrée :
+
+  ```txt
+  c = 10100101100111110010110010110101010011101011001111000011011001000010011101100101011011101000101101010011101010011000000110110000111011110110000001001100110111000001101110011101001100111010011110111001110000110110001001000001001011001100001101010100101110110101001000000110111101100101010111111101010011001110100001100100101101111100101010111111100001111101110010111110111010010000110110011010100110110101101001000011000101111000001100001111010011011100100001101000111100011010001101101100001110000100100100100101001101111001010010101100100101111100100100100001111100010111011110010001001001110001110011111001010001010000101001100000101000011101111110000000100000100010000010011101001111111001111001101011111101000011000110111111100000001101110111001010011011000100100110011011110010111110101001110011000101011101111001011101010110000100011011001101001101100100101010111010011010101011000110100000111001011110010111111101010100111010110010101010111101101110110011011011010001111000011101010110011001010110100111110000101110
+  d = 1001010000101110001100010101110110001001100011101010011110010011010011110010101110001100001000110011111000000101001010011110011111010100111000110010101100100000011001100111100111101011101110100011000111010001100011111000000000111111000001110111110000111010110010010101100110010010001001101010000000100111100111111010110011110001000010111001100101011000010100000111101011001111011111100010111101000011100000010001111001101001111010010000101001001101000110000101111010010110001011010010000100010010010000000010010001011111111101001111101110011000011100110111001100011101000001100101010111111110010101011001111011010010111111110011110010010100000100101011000110100110010011001011001110101010010100010000101001001111010111011010101010011100000000010100000100001010111011010000000101001000001011110100100100110101010001011011110111100000101011101001011110001111100101110010101100111001110111000111011010010001101101100111110000000110110101100100010110100001011001000101000100011110110110100000110010101011011010100110100011011101
+  n = 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001101110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010101001111011
+  ```
+
+- Attendu : `m = 1111011 (123 en binaire)`
+
+##### Code / Protocole
+
+```kotlin
+    "(Big, Big, Big)" When {
+        "decrypt" should {
+            "returns a good result in base 2^k from 1 to 31" {
+                checkAll(Exhaustive.ints(1..3)) { iteration ->
+                    val writer = File("output_Big_2to64_$iteration.txt").printWriter()
+                    writer.use { out ->
+                        checkAll(Exhaustive.ints(1..31)) { k ->
+                            val c = BigInt.valueOf("...", 2).toBase2PowK(k)
+                            val d = BigInt.valueOf("...", 2).toBase2PowK(k)
+                            val n = BigInt.valueOf("...", 2).toBase2PowK(k)
+                            val expected = BigInt.valueOf("1111011", 2).toBase2PowK(k)
+
+                            var result: BigInt
+                            measureTime {
+                                result = Rsa.decrypt(c, d, n)
+                            }.also {
+                                println("Base 2^$k, m = $result, Time elapsed: $it")
+                                out.println("$k\t${it.toLongNanoseconds()}")
+                            }
+
+                            result shouldBe expected
+                        }
+                    }
+                }
+            }
+        }
+    }
+```
+
+Note : Le test est sous format [Kotest](https://kotest.io).
+
+##### Résultats
+
+```txt
+Base 2^1, m = 1111011, Time elapsed: 226s
+Base 2^2, m = 1323, Time elapsed: 64.4s
+Base 2^3, m = 173, Time elapsed: 30.9s
+Base 2^4, m = 7b, Time elapsed: 18.3s
+Base 2^5, m = 3r, Time elapsed: 13.0s
+Base 2^6, m = {59, 1}, Time elapsed: 9.52s
+Base 2^7, m = {123}, Time elapsed: 7.53s
+Base 2^8, m = {123}, Time elapsed: 6.03s
+Base 2^9, m = {123}, Time elapsed: 5.32s
+Base 2^10, m = {123}, Time elapsed: 4.16s
+Base 2^11, m = {123}, Time elapsed: 3.81s
+Base 2^12, m = {123}, Time elapsed: 3.30s
+Base 2^13, m = {123}, Time elapsed: 2.95s
+Base 2^14, m = {123}, Time elapsed: 2.79s
+Base 2^15, m = {123}, Time elapsed: 2.48s
+Base 2^16, m = {123}, Time elapsed: 2.38s
+Base 2^17, m = {123}, Time elapsed: 2.14s
+Base 2^18, m = {123}, Time elapsed: 2.09s
+Base 2^19, m = {123}, Time elapsed: 2.09s
+Base 2^20, m = {123}, Time elapsed: 2.21s
+Base 2^21, m = {123}, Time elapsed: 2.05s
+Base 2^22, m = {123}, Time elapsed: 2.02s
+Base 2^23, m = {123}, Time elapsed: 1.69s
+Base 2^24, m = {123}, Time elapsed: 1.45s
+Base 2^25, m = {123}, Time elapsed: 1.42s
+Base 2^26, m = {123}, Time elapsed: 1.49s
+Base 2^27, m = {123}, Time elapsed: 1.30s
+Base 2^28, m = {123}, Time elapsed: 1.27s
+Base 2^29, m = {123}, Time elapsed: 1.31s
+Base 2^30, m = {123}, Time elapsed: 1.41s
+Base 2^31, m = {123}, Time elapsed: 1.52s
+```
+
+En l'exécutant 3 fois :
+
+![output_Big_2to64_](assets/output_Big_2to64_.png)
+
+Le résultat est assez claire : plus la base est grande et sous format $2^k$, plus les opérations sont rapides.
+
+<div style="page-break-after: always; break-after: page;"></div>
+
+# Conclusion
+
+Nous pouvons conclure que la base est grande et sous format $2^k$, plus les opérations sont rapides. Cependant, comme nos ordinateurs sont en 64bits, $2^{31}$ est le maximum (sinon l'implémentation de la multiplication overflow).
+
+De plus, le temps de conversion de la base 2 vers la base $2^k$ n'est pas très couteuse :
+
+![toBase2PowK_](assets/toBase2PowK_.png)
+
+Par contre, le temps de conversion de la base $n$ vers la base $2^k$ est assez longue (5s environ pour une conversion d'un mot 1025 bits en base 16 vers une base $2^k$, 7s environ pour une conversion d'un mot 1025 bits en base 10 vers une base $2^k$). En effet, pour convertir vers la base $2^k$, le nombre est d'abord convertit en base $2$. Or, cette conversion utilise des divisions et des modulos, ce qui n'est pas optimal.
+
+![FromBase16toBase2PowK](assets/FromBase16toBase2PowK.png)
+
+Une voie de développement serait d'optimiser cette conversion pour mieux supporter les conversions de base de $2^j$ à $2^k$.

@@ -92,7 +92,7 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
 
     init {
         this.mag = mag.stripTrailingZero()
-        this.sign = if (this.mag.size == 1 && this.mag.first() == 0u) 0 else sign  // Sign safety
+        this.sign = if (this.mag.size == 1 && this.mag.first() == 0u) 0 else sign // Sign safety
     }
 
     operator fun unaryPlus() = this
@@ -120,13 +120,13 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
 
     private infix fun addMagnitude(other: BigInt): UIntArray {
         val result = UIntArray(max(mag.size, other.mag.size) + 1)
-        var carry = 0u
+        var carry = 0uL
         var i = 0
 
         // Add common parts of both numbers
         while (i < mag.size && i < other.mag.size) {
             val sum = mag[i] + other.mag[i] + carry
-            result[i] = sum % base
+            result[i] = (sum % base).toUInt()
             carry = sum / base
             i++
         }
@@ -134,19 +134,19 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
         // Add the last part
         while (i < mag.size) {
             val sum = mag[i] + carry
-            result[i] = sum % base
+            result[i] = (sum % base).toUInt()
             carry = sum / base
             i++
         }
         while (i < other.mag.size) {
             val sum = other.mag[i] + carry
-            result[i] = sum % other.base
+            result[i] = (sum % other.base).toUInt()
             carry = sum / base
             i++
         }
 
         // Add the last carry (if exists)
-        if (carry > 0u) result[i] = carry
+        if (carry > 0u) result[i] = carry.toUInt()
         return result
     }
 
@@ -169,7 +169,7 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
 
     private infix fun subtractMagnitude(other: BigInt): UIntArray {
         val result = UIntArray(max(mag.size, other.mag.size))
-        var carry = 0u
+        var carry = 0uL
 
         val (largest, smallest) = if (this.compareUnsignedTo(other) < 0) {
             other to this
@@ -179,22 +179,28 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
 
         // Subtract common parts of both numbers
         for (i in smallest.mag.indices) {
-            var sub: UInt = largest.mag[i] - smallest.mag[i] - carry
-            carry = if (largest.mag[i] < smallest.mag[i] + carry) {
-                sub += largest.base
+            var sub: ULong
+            carry = if (largest.mag[i] < carry + smallest.mag[i]) {
+                sub = largest.mag[i] + (largest.base - carry - smallest.mag[i])
                 1u
-            } else 0u
-            result[i] = sub
+            } else {
+                sub = largest.mag[i] - smallest.mag[i] - carry
+                0u
+            }
+            result[i] = sub.toUInt()
         }
 
         // Subtract the last part
         for (i in smallest.mag.size until largest.mag.size) {
-            var sub: UInt = largest.mag[i] - carry
+            var sub: ULong
             carry = if (largest.mag[i] < carry) {
-                sub += largest.base
+                sub = largest.mag[i] + (largest.base - carry)
                 1u
-            } else 0u
-            result[i] = sub
+            } else {
+                sub = largest.mag[i] - carry
+                0u
+            }
+            result[i] = sub.toUInt()
         }
         return result
     }
@@ -207,13 +213,13 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
 
         // Basic multiplication
         for (i in other.mag.indices) {
-            var carry: UInt = 0u
+            var carry = 0uL
             for (j in mag.indices) {
-                result[i + j] += other.mag[i] * mag[j] + carry
-                carry = result[i + j] / base
-                result[i + j] = result[i + j] % base
+                val sum: ULong = result[i + j].toULong() + other.mag[i].toULong() * mag[j].toULong() + carry
+                carry = sum / base
+                result[i + j] = (sum % base).toUInt()
             }
-            result[i + mag.size] = carry
+            result[i + mag.size] = carry.toUInt()
         }
 
         return BigInt(result, base, sign * other.sign)
@@ -340,11 +346,11 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
 
         val thisMgy = this.montgomeryTimes(rSquare, n, v)
 
-        var p = r - n  // 1 sous forme Montgomery
+        var p = r - n // 1 sous forme Montgomery
         for (i in exponentBase2.mag.size - 1 downTo 0) {
-            p = p.montgomeryTimes(p, n, v)  // Square
+            p = p.montgomeryTimes(p, n, v) // Square
             if (exponentBase2.mag[i] == 1u) {
-                p = p.montgomeryTimes(thisMgy, n, v)  // Multiply
+                p = p.montgomeryTimes(thisMgy, n, v) // Multiply
             }
         }
         return p.montgomeryTimes(one, n, v)
@@ -358,8 +364,9 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
     private fun toStringBase(base: UInt): String {
         return mag.reversed().joinToString(separator = "") { it.toString(base.toInt()) }
     }
-    
+
     fun toBase2(): BigInt {
+        if (base == 2u) return this
         val size = ceil((this.mag.size + 1) * log2(base.toDouble()) + 1).toInt()
         val result = UIntArray(size)
 
@@ -375,6 +382,8 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
     }
 
     fun toBase2PowK(k: Int): BigInt {
+        val newBase = 2.0.pow(k.toDouble()).toUInt()
+        if (base == newBase) return this
         val thisBase2 = this.toBase2()
         val size = thisBase2.mag.size / k + 1
         val result = UIntArray(size)
@@ -385,7 +394,7 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
             }
         }
 
-        return BigInt(result, 2.0.pow(k.toDouble()).toUInt(), sign)
+        return BigInt(result, newBase, sign)
     }
 
     fun toLong() = valueInLong
