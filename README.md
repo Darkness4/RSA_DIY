@@ -628,11 +628,43 @@ fun toBase2(): BigInt {
 }
 ```
 
+### `toBase2PowK`
 
+Nous suspectons que l'algorithme sera plus performant avec un array de magnitude en base $2^k$.
+
+`toBase2PowK` va permettre de convertir d'un array de magnitude $n$ vers un array de magnitude en base $2^k$.
+
+```kotlin
+fun toBase2PowK(k: Int): BigInt {
+    val newBase = 1u shl k  // 2.pow(k)
+    if (base == newBase) return this
+    val thisBase2 = this.toBase2()
+    val result = UIntArray(size = thisBase2.mag.size / k + 1)
+
+    for (chunkIndex in result.indices) {
+        for (offset in 0 until k) {  // k = chunckSize
+            // result[chunkIndex] += x * 2.pow(offset)
+            // x is a bit. x = thisBase2.mag[chunkIndex * k + offset]
+            // If thisBase2.mag[chunkIndex * k + offset] fails, it returns 0u.
+            result[chunkIndex] += thisBase2.mag.elementAtOrElse(chunkIndex * k + offset) { 0u } shl offset
+        }
+    }
+
+    return BigInt(result, newBase, sign)
+}
+```
+
+En résumé, l'algorithme convertit en base $2$ puis en base $2^k$ en convertissant des blocs. Exemple de base $2$ vers $2^4$ (hexadecimal) :
+
+```kotlin
+1010 0010
+---- ----
+   a    2
+```
 
 <div style="page-break-after: always; break-after: page;"></div>
 
-## Algorithmie sous la forme de Mongomery
+## Algorithmie sous la forme de Montgomery
 
 ### `montgomeryTimes`
 

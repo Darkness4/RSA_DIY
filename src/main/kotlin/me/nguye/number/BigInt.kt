@@ -454,15 +454,17 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
     }
 
     fun toBase2PowK(k: Int): BigInt {
-        val newBase = 2.0.pow(k.toDouble()).toUInt()
+        val newBase = 1u shl k  // 2.pow(k)
         if (base == newBase) return this
         val thisBase2 = this.toBase2()
-        val size = thisBase2.mag.size / k + 1
-        val result = UIntArray(size)
+        val result = UIntArray(size = thisBase2.mag.size / k + 1)
 
-        for (i in result.indices) {
-            for (j in 0 until k) {
-                result[i] += thisBase2.mag.elementAtOrElse(i * k + j) { 0u } shl j
+        for (chunkIndex in result.indices) {
+            for (offset in 0 until k) {  // k = chunckSize
+                // result[chunkIndex] += x * 2.pow(offset)
+                // x is a bit. x = thisBase2.mag[chunkIndex * k + offset]
+                // If thisBase2.mag[chunkIndex * k + offset] fails, it returns 0u.
+                result[chunkIndex] += thisBase2.mag.elementAtOrElse(chunkIndex * k + offset) { 0u } shl offset
             }
         }
 
