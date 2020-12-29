@@ -51,7 +51,7 @@ class BigInt {
 }
 ```
 
-Ce qui se réduit à :
+En Kotlin, cela se réduit à :
 
 ```kotlin
 class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) {
@@ -82,14 +82,14 @@ fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigInt {
     val (mag, sign) = when {
         str.first() == '-' -> {
             i++
-            UIntArray(str.length - 1) to -1
+            UIntArray(str.length - 1) to NEGATIVE
         }
         str.first() == '+' -> {
             i++
-            UIntArray(str.length - 1) to 1
+            UIntArray(str.length - 1) to POSITIVE
         }
         else -> {
-            UIntArray(str.length) to 1
+            UIntArray(str.length) to POSITIVE
         }
     }
 
@@ -126,28 +126,12 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) {
     ...
     companion object {
         private const val DEFAULT_BASE_STRING = 10
+        private const val POSITIVE = 1
+        private const val NEGATIVE = -1
+        private const val NEUTRAL = 0
 
         fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigInt {
-            var i = 0
-            val (mag, sign) = when {
-                str.first() == '-' -> {
-                    i++
-                    UIntArray(str.length - 1) to -1
-                }
-                str.first() == '+' -> {
-                    i++
-                    UIntArray(str.length - 1) to 1
-                }
-                else -> {
-                    UIntArray(str.length) to 1
-                }
-            }
-
-            for (j in mag.size - 1 downTo 0) {
-                mag[j] = Character.digit(str[i], radix).toUInt()
-                i++
-            }
-            return BigInt(mag, radix.toUInt(), sign)
+            // ...
         }
     }
 }
@@ -175,7 +159,7 @@ ImASingleton.hello()
 
 ```kotlin
 class ImNotASingletonBut {
-    companion object {  // This is a Singleton
+    companion object {  // But, this is a Singleton
         fun hello() {}
     }
 }
@@ -189,7 +173,7 @@ ImNotASingletonBut.hello()
 
 ### Implémenter `Comparable<BigInt>`
 
-Parce qu'un nombre est comparable :
+Nous faisons cela, parce qu'un nombre est comparable et aidera les implémentations futures :
 
 ```kotlin
 class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt> {
@@ -216,9 +200,9 @@ Soit, sur Kotlin :
 ```kotlin
 override fun compareTo(other: BigInt): Int {
     return when {
-        sign < other.sign -> -1 // This is negative, and other is positive
-        sign > other.sign -> 1 // This is positive, and other is negative
-        sign == -1 && other.sign == -1 -> -1 * this.compareUnsignedTo(other) // Both are negative.
+        sign < other.sign -> NEGATIVE // This is negative, and other is positive
+        sign > other.sign -> POSITIVE // This is positive, and other is negative
+        sign == NEGATIVE && other.sign == NEGATIVE -> -this.compareUnsignedTo(other) // Both are negative.
         else -> this.compareUnsignedTo(other) // Both are positive
     }
 }
@@ -227,8 +211,8 @@ override fun compareTo(other: BigInt): Int {
 ```kotlin
 private fun compareUnsignedTo(other: BigInt): Int {
     return when {
-        this.mag.size < other.mag.size -> -1
-        this.mag.size > other.mag.size -> 1
+        this.mag.size < other.mag.size -> NEGATIVE
+        this.mag.size > other.mag.size -> POSITIVE
         else -> compareMagnitudeTo(other)
     }
 }
@@ -236,11 +220,12 @@ private fun compareUnsignedTo(other: BigInt): Int {
 
 ```kotlin
 private fun compareMagnitudeTo(other: BigInt): Int {
+    // Check for the first biggest number
     for (i in mag.size - 1 downTo 0) {
         if (mag[i] < other.mag[i]) {
-            return -1
+            return NEGATIVE
         } else if (mag[i] > other.mag[i]) {
-            return 1
+            return POSITIVE
         }
     }
     return 0
@@ -251,12 +236,12 @@ private fun compareMagnitudeTo(other: BigInt): Int {
 
 ```kotlin
 override fun equals(other: Any?): Boolean {
-    if (this === other) return true  // Instance check
-    if (javaClass != other?.javaClass) return false  // Class type check
+    if (this === other) return true
+    if (javaClass != other?.javaClass) return false
 
-    other as BigInt  // Cast check
+    other as BigInt
 
-    if (this.compareTo(other) != 0) return false  // Data check
+    if (this.compareTo(other) != NEUTRAL) return false
 
     return true
 }
@@ -290,12 +275,12 @@ operator fun plus(other: BigInt): BigInt {
         // Subtract instead
         val cmp = this.compareUnsignedTo(other)
         if (cmp == 0) return zero
-        val result = if (cmp > 0) this.subtractMagnitude(other) else other.subtractMagnitude(this)
-        val resultSign = if (cmp == sign) 1 else -1
+        val result = if (cmp > 0) this subtractMagnitude other else other subtractMagnitude this
+        val resultSign = if (cmp == sign) POSITIVE else NEGATIVE
         return BigInt(result, base, resultSign)
     }
 
-    val result = this addMagnitude other  // Implémentation
+    val result = this addMagnitude other
 
     return BigInt(result, base, sign)
 }
@@ -311,7 +296,7 @@ private infix fun addMagnitude(other: BigInt): UIntArray {
 
     // Add common parts of both numbers
     while (i < mag.size && i < other.mag.size) {
-        val sum = mag[i] + other.mag[i] + carry
+        val sum: ULong = mag[i] + other.mag[i] + carry
         result[i] = (sum % base).toUInt()
         carry = sum / base
         i++
@@ -319,13 +304,13 @@ private infix fun addMagnitude(other: BigInt): UIntArray {
 
     // Add the last part
     while (i < mag.size) {
-        val sum = mag[i] + carry
+        val sum: ULong = mag[i] + carry
         result[i] = (sum % base).toUInt()
         carry = sum / base
         i++
     }
     while (i < other.mag.size) {
-        val sum = other.mag[i] + carry
+        val sum: ULong = other.mag[i] + carry
         result[i] = (sum % other.base).toUInt()
         carry = sum / base
         i++
@@ -358,12 +343,12 @@ operator fun minus(other: BigInt): BigInt {
 
     if (this.sign != other.sign) {
         // Add instead
-        val result = this.addMagnitude(other)
+        val result = this addMagnitude other
         return BigInt(result, base, sign)
     }
 
     val result = this subtractMagnitude other
-    val resultSign = if (this < other) -1 else 1
+    val resultSign = if (this < other) NEGATIVE else POSITIVE
 
     return BigInt(result, base, resultSign)
 }
@@ -385,12 +370,12 @@ private infix fun subtractMagnitude(other: BigInt): UIntArray {
     // Subtract common parts of both numbers
     for (i in smallest.mag.indices) {
         var sub: ULong
-        carry = if (largest.mag[i] < carry + smallest.mag[i]) {
+        if (largest.mag[i] < carry + smallest.mag[i]) {
             sub = largest.mag[i] + (largest.base - carry - smallest.mag[i])
-            1u
+            carry = 1u
         } else {
             sub = largest.mag[i] - smallest.mag[i] - carry
-            0u
+            carry = 0u
         }
         result[i] = sub.toUInt()
     }
@@ -398,12 +383,12 @@ private infix fun subtractMagnitude(other: BigInt): UIntArray {
     // Subtract the last part
     for (i in smallest.mag.size until largest.mag.size) {
         var sub: ULong
-        carry = if (largest.mag[i] < carry) {
+        if (largest.mag[i] < carry) {
             sub = largest.mag[i] + (largest.base - carry)
-            1u
+            carry = 1u
         } else {
             sub = largest.mag[i] - carry
-            0u
+            carry = 0u
         }
         result[i] = sub.toUInt()
     }
@@ -416,7 +401,7 @@ L'algorithme de la soustraction **non signé** est également classique et assez
 - Partir du plus petit et soustraire les parties communes.
   - `largest.mag[i] - smallest.mag[i] - carry` est assez explicite
   - `if (largest.mag[i] < smallest.mag[i] + carry)` vérifie s'il existe un carry (e.g : "sub est-il négatif ?" ou "sub est-il en underflow ?").
-    - Si oui, alors on fait remontrer dans les nombres positifs en faisans `sub += base` et on stocke (`1u`) dans le carry.
+    - Si oui, alors on fait remonter dans les nombres positifs en ajoutant `base` et on stocke (`1u`) dans le carry.
 - Finir par la dernière partie.
 
 <div style="page-break-after: always; break-after: page;"></div>
@@ -432,10 +417,11 @@ operator fun times(other: BigInt): BigInt {
 
     val result = UIntArray(mag.size + other.mag.size)
 
-    // Basic multiplication
+    // School case multiplication
     for (i in other.mag.indices) {
         var carry = 0uL
         for (j in mag.indices) {
+            // Note: ULong is **necessary** to avoid overflow of other.mag[i] * mag[j].
             val sum: ULong = result[i + j].toULong() + other.mag[i].toULong() * mag[j].toULong() + carry
             carry = sum / base
             result[i + j] = (sum % base).toUInt()
@@ -480,7 +466,7 @@ infix fun remShl(k: Int): BigInt {
 }
 ```
 
-Car le reste de $x / n^k$ est $rem = x - n^k \times \lfloor\frac{x}{n^k}\rfloor$.
+Car le reste de $x / n^k$ est $rem = x - n^k \times \lfloor\frac{x}{n^k}\rfloor$ puisque $\text{remainder} = x - \text{other} \times \text{quotient}$.
 
 Note : L'implémentation de `basePowK`.
 
@@ -511,7 +497,7 @@ fun basePowK(base: UInt, k: Int): BigInt {
 
 Cependant, `div` est actuellement lourd à implémenter. Par conséquent, **nous essaierons de l'éviter au mieux**.
 
-L'implémentation est l'algorithme de *Binary Search*.
+L'implémentation est l'algorithme de *Binary Search* (recherche par dichotomie).
 
 ```kotlin
 operator fun div(other: BigInt): BigInt {
@@ -528,38 +514,40 @@ operator fun div(other: BigInt): BigInt {
 
         val productResult = other * mid
 
-        // If result is the same.
-        if (productResult == this || prevMid == mid) {
-            return mid
-        }
-        if (productResult < this) {
-            left = mid
-        } else {
-            right = mid
+        when {
+            productResult == this || prevMid == mid -> {  // Exit condition: mid = this / other.
+                return mid
+            }
+            productResult < this -> {  // mid < this / other. Too low.
+                left = mid  // x if after the middle.
+            }
+            else -> {  // mid > this / other. Too high.
+                right = mid  // x is before the middle.
+            }
         }
         prevMid = mid
     }
 }
 ```
 
-En effet, l'algorithme s'applique car les données ($other \times x$ est croissants). Par conséquent, en appliquant cet algorithme, si $other \times mid = this$ alors $\frac{this}{other} = mid$.
+En effet, l'algorithme s'applique car $other \times x$ est strictement croissant et continue. Par conséquent, en appliquant cet algorithme, si $other \times mid = this$ alors $\frac{this}{other} = mid$.
 
 L'implémentation de `divBy2()` est le cas d'école :
 
 ```kotlin
-fun divBy2(): BigInt {
-    if (this == zero || this == one) return zero
-    val result = mag.copyOf()  // Pour avoir un array de même
+ fun divBy2(): BigInt {
+        if (this == zero || this == one) return zero
+        val result = mag.copyOf()
 
-    var carry = 0u
-    for (i in mag.size - 1 downTo 0) {
-        result[i] = result[i] + carry
-        carry = if (result[i] % 2u == 1u) base else 0u
-        result[i] = result[i] shr 1  // Div by 2
+        var carry = 0u
+        for (i in mag.size - 1 downTo 0) {
+            result[i] = result[i] + carry
+            carry = if (result[i] % 2u == 1u) base else 0u // Store carry if remainder exist
+            result[i] = result[i] shr 1 // Div by 2
+        }
+
+        return BigInt(result, base, sign)
     }
-
-    return BigInt(result, base, sign)
-}
 ```
 
 **Déduction à propos choix de l'algorithme Binary Search : **Le choix de cet algorithme a actuellement un complexité faible : $\mathcal{O}(1)$ si `other` est un multiple de 2. **Cela influencera l'implémentation de l'algorithmie modulaire.**
@@ -616,6 +604,34 @@ Notez `.let`, cela permet de faire `(oldR, r) = (r, oldR - q * r)` en séquentie
 
 <div style="page-break-after: always; break-after: page;"></div>
 
+## Convertisseurs de base
+
+### `toBase2`
+
+Nous utilisons l'algorithme par division.
+
+```kotlin
+fun toBase2(): BigInt {
+    if (base == 2u) return this
+    val size = ceil((this.mag.size + 1) * log2(base.toDouble()) + 1).toInt()
+    val result = UIntArray(size)
+
+    var i = 0
+    var num = this
+    while (num != zero) {
+        result[i] = num.mag[0] % 2u  // num % 2
+        num = num.divBy2()
+        i++
+    }
+
+    return BigInt(result, 2u, sign)
+}
+```
+
+
+
+<div style="page-break-after: always; break-after: page;"></div>
+
 ## Algorithmie sous la forme de Mongomery
 
 ### `montgomeryTimes`
@@ -633,6 +649,8 @@ fun montgomeryTimes(other: BigInt, n: BigInt, v: BigInt): BigInt {
     return if (u >= n) u - n else u
 }
 ```
+
+$v$ tel que  $n \cdot v \equiv -1 \bmod r$. $r$ tel que si $base^{k-1} \leqslant n < base^k$ alors $r = base^k$.
 
 Notez `remShl` qui signifie "reste de shift left `n.mag.size` fois" soit "reste de $/base^\text{n.mag.size}$".
 
@@ -757,17 +775,21 @@ fun modPow(exponent: BigInt, n: BigInt): BigInt {
     val r = basePowK(n.mag.size)
     val rSquare = basePowK(n.mag.size * 2) % n
 
-    val v = r - (n modInverse r) // n * n' = 1 mod r, n' = "1/n mod r", v = r - n' = "-1/n mod r"
+    // v*n = -1 mod r = (r - 1) mod r
+    val v = r - (n modInverse r)
 
+    // Put this in montgomery form
     val thisMgy = this.montgomeryTimes(rSquare, n, v)
 
-    var p = r - n  // 1 sous forme Montgomery
+    var p = r - n // 1 in montgomery form
     for (i in exponentBase2.mag.size - 1 downTo 0) {
-        p = p.montgomeryTimes(p, n, v)  // Square
+        p = p.montgomeryTimes(p, n, v) // Square : p = p*p
         if (exponentBase2.mag[i] == 1u) {
-            p = p.montgomeryTimes(thisMgy, n, v)  // Multiply
+            p = p.montgomeryTimes(thisMgy, n, v) // Multiply : p = p * a
         }
     }
+
+    // Return the result in the standard form
     return p.montgomeryTimes(one, n, v)
 }
 ```
@@ -778,35 +800,35 @@ Faisons ligne par ligne :
 
 - `val r = basePowK(n.mag.size)`, car, $r$ est choisi tel que si $base^{k-1} \leqslant n < base^k$ alors $r = base^k$ pour que $r$ soit premier avec $n$.
 
-- `val rSquare = basePowK(n.mag.size * 2) % n` afin de mettre sous forme de Montgomery.
+- `val rSquare = basePowK(n.mag.size * 2) % n` est $r^2 \bmod n$
 
 - `val v = r - (n modInverse r)` est un coefficient de Bezout issue de $r\cdot r' - n \cdot v = 1$.
 
 - ```kotlin
-  var p = r - n  // 1 sous forme Montgomery
+  var p = r - n // 1 in montgomery form
   for (i in exponentBase2.mag.size - 1 downTo 0) {
-      p = p.montgomeryTimes(p, n, v)  // Square
+      p = p.montgomeryTimes(p, n, v) // Square : p = p*p
       if (exponentBase2.mag[i] == 1u) {
-          p = p.montgomeryTimes(thisMgy, n, v)  // Multiply
+          p = p.montgomeryTimes(thisMgy, n, v) // Multiply : p = p * a
       }
   }
   ```
 
-  est l'algorithme square-and-multiply.
+  est l'algorithme *square-and-multiply*.
 
   Elle fonctionne de la manière suivante : 
 
-  - Si $x^k$, en mettant $k$ est décomposable en base 2. (exemple si $k = 22 = (10110)_2$) Donc, $x^k = x^{a_n 2^n + ... + a_0}$. ($x^{22} = x^{16+4+2} = x^{16}x^4x^2$)
+  - Si $x^k$, alors $k$ est décomposable en base 2. (exemple si $k = 22 = (10110)_2$) Donc, $x^k = x^{a_n 2^n + ... + a_0}$. ($x^{22} = x^{16+4+2} = x^{16}x^4x^2$)
 
   - Si il y a des 1, alors il faut multiplier, car $x^a \cdot x^b = x^{a+b}$ (plus précisément : $x^{a_i2^i} \cdot x^{a_j2^j} = x^{a_i2^i + a_j2^j}$).
   - Nous utilisons "square" pour multiplier l'exposant par 2 (décaler à gauche les bits de l'exposant), car $x^a \cdot x^a = x^{2a}$ (plus précisément : $x^{a_i2^i} \cdot x^{a_i2^i} = x^{a_i2^{i+1}}$.
   - Donc, en reprenant l'exemple :
     - On itère 5 fois. Chaque itération (squaring) multiplie les exposants par 2.
-    - La première multiplication à la première itération va permettre de construire $x^{16}$.
-    - La deuxième multiplication à la troisième itération va permettre de construire $x^4$
-    - La troisième multiplication à la quatrième itération va permettre de construire $x^2$
+    - La première multiplication à la première itération va permettre de construire $x^{16}$ grâce aux 4 itérations (square) restantes.
+    - La deuxième multiplication à la troisième itération va permettre de construire $x^4$ grâce aux 2 itérations (square) restantes.
+    - La troisième multiplication à la quatrième itération va permettre de construire $x^2$ grâce la dernière itération.
 
-- `p.montgomeryTimes(one, n, v)` est la mise sous la forme "standard".
+- `p.montgomeryTimes(one, n, v)` est la mise sous la forme "standard" (non-Montgomery).
 
 <div style="page-break-after: always; break-after: page;"></div>
 
@@ -861,7 +883,7 @@ fun main() {
 decrypting
 7b
 c8
-Time Elapsed : 40.2s
+Time Elapsed : 30.4s
 ```
 
 Résultat satisfaisant.
@@ -917,7 +939,7 @@ fun main() {
 decrypting
 {123}
 {200}
-Time Elapsed : 5.00s
+Time Elapsed : 2.39s
 ```
 
 Résultat satisfaisant.
@@ -973,7 +995,7 @@ fun main() {
 decrypting
 123
 200
-Time Elapsed : 305s
+Time Elapsed : 282s
 ```
 
 Résultat satisfaisant malgré le temps de traitement élevé.
@@ -1029,10 +1051,10 @@ fun main() {
 decrypting
 1111011
 11001000
-Time Elapsed : 495s
+Time Elapsed : 447s
 ```
 
-Résultat satisfaisant mais un temps trop élevé.
+Résultat satisfaisant mais un temps trop élevé. Cela peut s'expliquer, car, en base 2, nous utilisons aucune optimisation de l'ordinateur.
 
 <div style="page-break-after: always; break-after: page;"></div>
 
@@ -1108,37 +1130,37 @@ Note : Le test est sous format [Kotest](https://kotest.io).
 ##### Résultats
 
 ```txt
-Base 2^1, m = 1000001, Time elapsed: 23.1ms
-Base 2^2, m = 1001, Time elapsed: 9.03ms
-Base 2^3, m = 101, Time elapsed: 3.61ms
-Base 2^4, m = 41, Time elapsed: 3.44ms
-Base 2^5, m = 21, Time elapsed: 2.61ms
-Base 2^6, m = {1, 1}, Time elapsed: 3.02ms
-Base 2^7, m = {65}, Time elapsed: 939us
-Base 2^8, m = {65}, Time elapsed: 2.67ms
-Base 2^9, m = {65}, Time elapsed: 1.08ms
-Base 2^10, m = {65}, Time elapsed: 951us
-Base 2^11, m = {65}, Time elapsed: 1.02ms
-Base 2^12, m = {65}, Time elapsed: 933us
-Base 2^13, m = {65}, Time elapsed: 1.09ms
-Base 2^14, m = {65}, Time elapsed: 823us
-Base 2^15, m = {65}, Time elapsed: 857us
-Base 2^16, m = {65}, Time elapsed: 883us
-Base 2^17, m = {65}, Time elapsed: 913us
-Base 2^18, m = {65}, Time elapsed: 823us
-Base 2^19, m = {65}, Time elapsed: 694us
-Base 2^20, m = {65}, Time elapsed: 947us
-Base 2^21, m = {65}, Time elapsed: 775us
-Base 2^22, m = {65}, Time elapsed: 1.69ms
-Base 2^23, m = {65}, Time elapsed: 1.68ms
-Base 2^24, m = {65}, Time elapsed: 1.20ms
-Base 2^25, m = {65}, Time elapsed: 1.64ms
-Base 2^26, m = {65}, Time elapsed: 1.80ms
-Base 2^27, m = {65}, Time elapsed: 1.42ms
-Base 2^28, m = {65}, Time elapsed: 1.08ms
-Base 2^29, m = {65}, Time elapsed: 1.37ms
-Base 2^30, m = {65}, Time elapsed: 968us
-Base 2^31, m = {65}, Time elapsed: 923us
+Base 2^1, m = 1000001, Time elapsed: 14.3ms
+Base 2^2, m = 1001, Time elapsed: 4.27ms
+Base 2^3, m = 101, Time elapsed: 1.59ms
+Base 2^4, m = 41, Time elapsed: 1.44ms
+Base 2^5, m = 21, Time elapsed: 1.10ms
+Base 2^6, m = {1, 1}, Time elapsed: 828us
+Base 2^7, m = {65}, Time elapsed: 840us
+Base 2^8, m = {65}, Time elapsed: 672us
+Base 2^9, m = {65}, Time elapsed: 640us
+Base 2^10, m = {65}, Time elapsed: 695us
+Base 2^11, m = {65}, Time elapsed: 739us
+Base 2^12, m = {65}, Time elapsed: 948us
+Base 2^13, m = {65}, Time elapsed: 15.3ms
+Base 2^14, m = {65}, Time elapsed: 416us
+Base 2^15, m = {65}, Time elapsed: 547us
+Base 2^16, m = {65}, Time elapsed: 551us
+Base 2^17, m = {65}, Time elapsed: 1.18ms
+Base 2^18, m = {65}, Time elapsed: 446us
+Base 2^19, m = {65}, Time elapsed: 378us
+Base 2^20, m = {65}, Time elapsed: 491us
+Base 2^21, m = {65}, Time elapsed: 591us
+Base 2^22, m = {65}, Time elapsed: 594us
+Base 2^23, m = {65}, Time elapsed: 687us
+Base 2^24, m = {65}, Time elapsed: 624us
+Base 2^25, m = {65}, Time elapsed: 653us
+Base 2^26, m = {65}, Time elapsed: 740us
+Base 2^27, m = {65}, Time elapsed: 554us
+Base 2^28, m = {65}, Time elapsed: 561us
+Base 2^29, m = {65}, Time elapsed: 704us
+Base 2^30, m = {65}, Time elapsed: 626us
+Base 2^31, m = {65}, Time elapsed: 745us
 ```
 
 En l'exécutant 3 fois :
@@ -1202,42 +1224,42 @@ Note : Le test est sous format [Kotest](https://kotest.io).
 ##### Résultats
 
 ```txt
-Base 2^1, m = 1111011, Time elapsed: 226s
-Base 2^2, m = 1323, Time elapsed: 64.4s
-Base 2^3, m = 173, Time elapsed: 30.9s
-Base 2^4, m = 7b, Time elapsed: 18.3s
-Base 2^5, m = 3r, Time elapsed: 13.0s
-Base 2^6, m = {59, 1}, Time elapsed: 9.52s
-Base 2^7, m = {123}, Time elapsed: 7.53s
-Base 2^8, m = {123}, Time elapsed: 6.03s
-Base 2^9, m = {123}, Time elapsed: 5.32s
-Base 2^10, m = {123}, Time elapsed: 4.16s
-Base 2^11, m = {123}, Time elapsed: 3.81s
-Base 2^12, m = {123}, Time elapsed: 3.30s
-Base 2^13, m = {123}, Time elapsed: 2.95s
-Base 2^14, m = {123}, Time elapsed: 2.79s
-Base 2^15, m = {123}, Time elapsed: 2.48s
-Base 2^16, m = {123}, Time elapsed: 2.38s
-Base 2^17, m = {123}, Time elapsed: 2.14s
-Base 2^18, m = {123}, Time elapsed: 2.09s
-Base 2^19, m = {123}, Time elapsed: 2.09s
-Base 2^20, m = {123}, Time elapsed: 2.21s
-Base 2^21, m = {123}, Time elapsed: 2.05s
-Base 2^22, m = {123}, Time elapsed: 2.02s
-Base 2^23, m = {123}, Time elapsed: 1.69s
-Base 2^24, m = {123}, Time elapsed: 1.45s
-Base 2^25, m = {123}, Time elapsed: 1.42s
-Base 2^26, m = {123}, Time elapsed: 1.49s
-Base 2^27, m = {123}, Time elapsed: 1.30s
-Base 2^28, m = {123}, Time elapsed: 1.27s
-Base 2^29, m = {123}, Time elapsed: 1.31s
-Base 2^30, m = {123}, Time elapsed: 1.41s
-Base 2^31, m = {123}, Time elapsed: 1.52s
+Base 2^1, m = 1111011, Time elapsed: 229s
+Base 2^2, m = 1323, Time elapsed: 60.3s
+Base 2^3, m = 173, Time elapsed: 27.3s
+Base 2^4, m = 7b, Time elapsed: 15.3s
+Base 2^5, m = 3r, Time elapsed: 9.77s
+Base 2^6, m = {59, 1}, Time elapsed: 6.71s
+Base 2^7, m = {123}, Time elapsed: 4.92s
+Base 2^8, m = {123}, Time elapsed: 3.79s
+Base 2^9, m = {123}, Time elapsed: 3.00s
+Base 2^10, m = {123}, Time elapsed: 2.40s
+Base 2^11, m = {123}, Time elapsed: 2.09s
+Base 2^12, m = {123}, Time elapsed: 1.71s
+Base 2^13, m = {123}, Time elapsed: 1.47s
+Base 2^14, m = {123}, Time elapsed: 1.31s
+Base 2^15, m = {123}, Time elapsed: 1.16s
+Base 2^16, m = {123}, Time elapsed: 998ms
+Base 2^17, m = {123}, Time elapsed: 931ms
+Base 2^18, m = {123}, Time elapsed: 750ms
+Base 2^19, m = {123}, Time elapsed: 704ms
+Base 2^20, m = {123}, Time elapsed: 656ms
+Base 2^21, m = {123}, Time elapsed: 624ms
+Base 2^22, m = {123}, Time elapsed: 520ms
+Base 2^23, m = {123}, Time elapsed: 484ms
+Base 2^24, m = {123}, Time elapsed: 440ms
+Base 2^25, m = {123}, Time elapsed: 398ms
+Base 2^26, m = {123}, Time elapsed: 400ms
+Base 2^27, m = {123}, Time elapsed: 389ms
+Base 2^28, m = {123}, Time elapsed: 361ms
+Base 2^29, m = {123}, Time elapsed: 342ms
+Base 2^30, m = {123}, Time elapsed: 338ms
+Base 2^31, m = {123}, Time elapsed: 295ms
 ```
 
 En l'exécutant 3 fois :
 
-![output_Big_2to64_](assets/output_Big_2to64_.png)
+![output_Big_2to64](assets/output_Big_2to64.png)
 
 Le résultat est assez claire : plus la base est grande et sous format $2^k$, plus les opérations sont rapides.
 
@@ -1247,12 +1269,13 @@ Le résultat est assez claire : plus la base est grande et sous format $2^k$, pl
 
 Nous pouvons conclure que la base est grande et sous format $2^k$, plus les opérations sont rapides. Cependant, comme nos ordinateurs sont en 64bits, $2^{31}$ est le maximum (sinon l'implémentation de la multiplication overflow).
 
-De plus, le temps de conversion de la base 2 vers la base $2^k$ n'est pas très couteuse :
+De plus, le temps de conversion de la base 2 vers la base $2^k$ n'est pas très couteuse (< 1 ms pour un mot de 1024 bits) :
 
-![toBase2PowK_](assets/toBase2PowK_.png)
+![toBase2PowK](assets/toBase2PowK.png)
 
-Par contre, le temps de conversion de la base $n$ vers la base $2^k$ est assez longue (5s environ pour une conversion d'un mot 1025 bits en base 16 vers une base $2^k$, 7s environ pour une conversion d'un mot 1025 bits en base 10 vers une base $2^k$). En effet, pour convertir vers la base $2^k$, le nombre est d'abord convertit en base $2$. Or, cette conversion utilise des divisions et des modulos, ce qui n'est pas optimal.
+Le temps de conversion de la base $n$ vers la base $2^k$ est également courte (~6 ms depuis la base 10, ~5 ms depuis la base 16 pour un mot de 1024 bits). 
+
+![FromBase10toBase2PowK](assets/FromBase10toBase2PowK.png)
 
 ![FromBase16toBase2PowK](assets/FromBase16toBase2PowK.png)
 
-Une voie de développement serait d'optimiser cette conversion pour mieux supporter les conversions de base de $2^j$ à $2^k$.

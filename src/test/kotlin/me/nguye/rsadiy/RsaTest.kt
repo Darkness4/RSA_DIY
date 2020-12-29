@@ -42,12 +42,10 @@ class RsaTest : WordSpec({
     }
 
     "(Big, Big, Big)" When {
-        timeout = Long.MAX_VALUE
         "decrypt" should {
-            timeout = Long.MAX_VALUE
             "returns a good result in base 2^k from 1 to 31" {
-                timeout = Long.MAX_VALUE
                 checkAll(Exhaustive.ints(1..3)) { iteration ->
+                    timeout = Long.MAX_VALUE
                     val writer = File("output_Big_2to64_$iteration.txt").printWriter()
                     writer.use { out ->
                         checkAll(Exhaustive.ints(1..31)) { k ->

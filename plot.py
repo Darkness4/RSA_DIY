@@ -4,7 +4,7 @@ if __name__ == "__main__":
     xList = []
     yList = []
     # prepend = "output_2790_413_3233_2to64"
-    prepend = "FromBase16toBase2PowK"
+    prepend = "FromBase10toBase2PowK"
 
     for i in range(1, 4):
         x = []
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     ax.set(
         xlabel="Base (2^)",
         ylabel="Duration (ns)",
-        title=f"Duration of ${prepend} depending on the base",
+        title=f"Duration of {prepend} depending on the base",
     )
     ax.grid()
     ax.legend()
