@@ -1,10 +1,10 @@
 package me.nguye.rsadiy
 
-import me.nguye.number.BigInt
+import me.nguye.number.BigUInt
 
 @ExperimentalUnsignedTypes
 object Rsa {
-    fun decrypt(c: BigInt, d: BigInt, n: BigInt) = c.modPow(d, n)
+    fun decrypt(c: BigUInt, d: BigUInt, n: BigUInt) = c.modPow(d, n)
 
-    fun encrypt(m: BigInt, e: BigInt, n: BigInt) = m.modPow(e, n)
+    fun encrypt(m: BigUInt, e: BigUInt, n: BigUInt) = m.modPow(e, n)
 }

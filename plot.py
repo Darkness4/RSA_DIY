@@ -3,8 +3,7 @@ import matplotlib.pyplot as plt
 if __name__ == "__main__":
     xList = []
     yList = []
-    # prepend = "output_2790_413_3233_2to64"
-    prepend = "FromBase10toBase2PowK"
+    prepend = "toBase2PowK"
 
     for i in range(1, 4):
         x = []

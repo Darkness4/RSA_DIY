@@ -2,19 +2,18 @@
 
 ## Conception de la structure Grand Nombre
 
-Notre objet `BigInt` stocke :
+Notre objet `BigUInt` stocke :
 
 - `mag` : Un array de magnitude de type `UIntArray` avec les éléments dans la base de travail, en little endian. (ex : `{0, 1, 0, 1}` en base 2 ou`{0, 1}` en base 10)
 
 - `base` : La base de travail
-- `sign` : Le signe en `Int` (-1 est négatif, 0 est zéro)
 
 La raison de stocker un tableau de magnitude et une base de travail est que nous allons analyser le String de la valeur.
 
 Example :
 
 ```kotlin
-BigInt.valueOf("12345", radix=10)
+BigUInt.valueOf("12345", radix=10)
 ```
 
 Ce qui donne dans l'objet :
@@ -23,30 +22,25 @@ Ce qui donne dans l'objet :
 {
     "mag": {5, 4, 3, 2, 1},
     "base": 10,
-    "sign": 1
 }
 ```
 
-La raison du type du signe dans `Int` est que, pendant le calcul de `times` (ou `*`), le `sign` est ``this.sign * other.sign`.
-
 <div style="page-break-after: always; break-after: page;"></div>
 
-## Instancier `BigInt`
+## Instancier `BigUInt`
 
 ### Constructeur
 
 Nous n'avons qu'un constructeur :
 
 ```kotlin
-class BigInt {
+class BigUInt {
     val mag: UIntArray
     val base: UInt
-    val sign: Int
 
-    constructor(mag: UIntArray, base: UInt, sign: Int = 1) {
+    constructor(mag: UIntArray, base: UInt) {
         this.mag = mag.stripTrailingZero()
         this.base = base
-        this.sign = if (this.mag.size == 1 && this.mag.first() == 0u) 0 else sign  // Sécurité du signe
     }
 }
 ```
@@ -54,42 +48,36 @@ class BigInt {
 En Kotlin, cela se réduit à :
 
 ```kotlin
-class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) {
+class BigUInt(mag: UIntArray, val base: UInt) {
 	val mag: UIntArray
-    val sign: Int
 
     init {
         this.mag = mag.stripTrailingZero()
-        this.sign = if (this.mag.size == 1 && this.mag.first() == 0u) 0 else sign  // Sécurité du signe
     }
 }
 ```
 
 <div style="page-break-after: always; break-after: page;"></div>
 
-### Parser un String (`BigInt.valueOf`)
+### Parser un String (`BigUInt.valueOf`)
 
 L'algorithme est assez simple, mais ne supporte que les bases 2 à 36 (car, en base 36, contient les caractères 0-9a-z).
 
 En résumé :
 
-- Vérifie s'il existe un signe et attribue le signe en fonction de la présence de signe
+- Vérifie s'il existe un signe et attribue en fonction de la présence de signe
 - Convertit les charactères en digit en fonction de la base de travail (`radix`)
 
 ```kotlin
-fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigInt {
+fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigUInt {
     var i = 0
-    val (mag, sign) = when {
-        str.first() == '-' -> {
+    val mag = when {
+        str.first() == '-' || str.first() == '+' -> {
             i++
-            UIntArray(str.length - 1) to NEGATIVE
-        }
-        str.first() == '+' -> {
-            i++
-            UIntArray(str.length - 1) to POSITIVE
+            UIntArray(str.length - 1)
         }
         else -> {
-            UIntArray(str.length) to POSITIVE
+            UIntArray(str.length)
         }
     }
 
@@ -97,13 +85,11 @@ fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigInt {
         mag[j] = Character.digit(str[i], radix).toUInt()
         i++
     }
-    return BigInt(mag, radix.toUInt(), sign)
+    return BigUInt(mag, radix.toUInt())
 }
 ```
 
-Si vous n'êtes pas familier à la déclaration par destructuration : [Pair](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin/-pair/), [Control Flow](https://kotlinlang.org/docs/reference/control-flow.html). En résumé, il est possible de faire une assignation parallèle avec `val (a, b) = value1 to value2`.
-
-Egalement, chaque expression de contrôle de flux permet de retourner la dernière valeur. Exemple :
+Note : Sur Kotlin, chaque expression de contrôle de flux permet de retourner la dernière valeur. Exemple :
 
 ```kotlin
 val a = if (condition) {
@@ -117,20 +103,17 @@ val a = if (condition) {
 
 Cela permet de remplacer l'opérateur ternaire de Java (`condition ? returnMeIfTrue : returnMeIfFalse`).
 
-Notez que cette méthode est **statique**, voire plus précisément est une [**méthode factory**](https://refactoring.guru/design-patterns/factory-method). Ce qui signifie qu'elle doit être stocké dans un objet factory ayant un cycle de vie de [singleton](https://refactoring.guru/design-patterns/singleton).
+Notez que cette méthode est une [**méthode factory**](https://refactoring.guru/design-patterns/factory-method). Ce qui signifie qu'elle doit être stocké dans un objet factory ayant un cycle de vie de [singleton](https://refactoring.guru/design-patterns/singleton).
 
 En Kotlin, cela se résume à faire un [`companion object`](https://kotlinlang.org/docs/reference/object-declarations.html) :
 
 ```kotlin
-class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) {
+class BigUInt(mag: UIntArray, val base: UInt) {
     ...
     companion object {
         private const val DEFAULT_BASE_STRING = 10
-        private const val POSITIVE = 1
-        private const val NEGATIVE = -1
-        private const val NEUTRAL = 0
 
-        fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigInt {
+        fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigUInt {
             // ...
         }
     }
@@ -140,7 +123,7 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) {
 Ce qui permet :
 
 ```kotlin
-BigInt.valueOf("12345", 10)
+BigUInt.valueOf("12345", 10)
 ```
 
 `object` sous Kotlin est un singleton et permet de stocker des variables ou méthodes existant sur toute l'application. (En gros, c'est une méthode `static` au sens de C++, c'est-à-dire, partagé entre toutes les instances de classes).
@@ -155,7 +138,7 @@ object ImASingleton {
 ImASingleton.hello()
 ```
 
-`companion object` associe la classe mère (ici, `BigInt`) avec l'`object`.
+`companion object` associe la classe mère (ici, `BigUInt`) avec l'`object`.
 
 ```kotlin
 class ImNotASingletonBut {
@@ -171,13 +154,13 @@ ImNotASingletonBut.hello()
 
 ## Comparaison
 
-### Implémenter `Comparable<BigInt>`
+### Implémenter `Comparable<BigUInt>`
 
 Nous faisons cela, parce qu'un nombre est comparable et aidera les implémentations futures :
 
 ```kotlin
-class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt> {
-    override fun compareTo(other: BigInt): Int {
+class BigUInt(mag: UIntArray, val base: UInt) : Comparable<BigUInt> {
+    override fun compareTo(other: BigUInt): Int {
         TODO("Not implemented yer")
     }
     
@@ -191,41 +174,35 @@ class BigInt(mag: UIntArray, val base: UInt, sign: Int = 1) : Comparable<BigInt>
 
 L'algorithme est la suivant :
 
-- Comparer les signes en premiers. 
-- Si les signes sont les mêmes, comparer la taille des arrays de magnitude
-- Si les tailles et signes sont les mêmes, comparer les digits en partant de la fin.
+- Comparer la taille des arrays de magnitude
+- Si les tailles sont les mêmes, comparer les digits en partant de la fin.
 
 Soit, sur Kotlin :
 
 ```kotlin
-override fun compareTo(other: BigInt): Int {
-    return when {
-        sign < other.sign -> NEGATIVE // This is negative, and other is positive
-        sign > other.sign -> POSITIVE // This is positive, and other is negative
-        sign == NEGATIVE && other.sign == NEGATIVE -> -this.compareUnsignedTo(other) // Both are negative.
-        else -> this.compareUnsignedTo(other) // Both are positive
-    }
+override fun compareTo(other: BigUInt): Int {
+    return this.compareUnsignedTo(other)
 }
 ```
 
 ```kotlin
-private fun compareUnsignedTo(other: BigInt): Int {
+private fun compareUnsignedTo(other: BigUInt): Int {
     return when {
-        this.mag.size < other.mag.size -> NEGATIVE
-        this.mag.size > other.mag.size -> POSITIVE
+        this.mag.size < other.mag.size -> -1
+        this.mag.size > other.mag.size -> 1
         else -> compareMagnitudeTo(other)
     }
 }
 ```
 
 ```kotlin
-private fun compareMagnitudeTo(other: BigInt): Int {
+private fun compareMagnitudeTo(other: BigUInt): Int {
     // Check for the first biggest number
     for (i in mag.size - 1 downTo 0) {
         if (mag[i] < other.mag[i]) {
-            return NEGATIVE
+            return -1
         } else if (mag[i] > other.mag[i]) {
-            return POSITIVE
+            return 1
         }
     }
     return 0
@@ -239,9 +216,9 @@ override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (javaClass != other?.javaClass) return false
 
-    other as BigInt
+    other as BigUInt
 
-    if (this.compareTo(other) != NEUTRAL) return false
+    if (this.compareTo(other) != 0) return false
 
     return true
 }
@@ -258,7 +235,7 @@ Opérateurs `+a` et `-a`. Rien de plus simple :
 ```kotlin
 operator fun unaryPlus() = this
 
-operator fun unaryMinus() = BigInt(mag, base, -sign)
+operator fun unaryMinus() = this
 ```
 
 ### `plus`
@@ -266,30 +243,21 @@ operator fun unaryMinus() = BigInt(mag, base, -sign)
 Notre implémentation contient quelques conditions pour la sécurité :
 
 ```kotlin
-operator fun plus(other: BigInt): BigInt {
+operator fun plus(other: BigUInt): BigUInt {
     if (base != other.base) throw NumberFormatException()
     if (this == zero) return other
     if (other == zero) return this
 
-    if (this.sign != other.sign) {
-        // Subtract instead
-        val cmp = this.compareUnsignedTo(other)
-        if (cmp == 0) return zero
-        val result = if (cmp > 0) this subtractMagnitude other else other subtractMagnitude this
-        val resultSign = if (cmp == sign) POSITIVE else NEGATIVE
-        return BigInt(result, base, resultSign)
-    }
-
     val result = this addMagnitude other
 
-    return BigInt(result, base, sign)
+    return BigUInt(result, base)
 }
 ```
 
 Allons voir l'implémentation de `addMagnitude`.
 
 ```kotlin
-private infix fun addMagnitude(other: BigInt): UIntArray {
+private infix fun addMagnitude(other: BigUInt): UIntArray {
     val result = UIntArray(max(mag.size, other.mag.size) + 1)
     var carry = 0uL
     var i = 0
@@ -336,28 +304,21 @@ Ici, il s'agit de l'algorithme de l'addition classique :
 Notre implémentation contient quelques conditions pour la sécurité :	
 
 ```kotlin
-operator fun minus(other: BigInt): BigInt {
+operator fun minus(other: BigUInt): BigUInt {
     if (base != other.base) throw NumberFormatException()
-    if (this == zero) return BigInt(other.mag, base, -other.sign)
+    if (this == zero) return other
     if (other == zero) return this
 
-    if (this.sign != other.sign) {
-        // Add instead
-        val result = this addMagnitude other
-        return BigInt(result, base, sign)
-    }
-
     val result = this subtractMagnitude other
-    val resultSign = if (this < other) NEGATIVE else POSITIVE
 
-    return BigInt(result, base, resultSign)
+    return BigUInt(result, base)
 }
 ```
 
 Allons voir `subtractMagnitude`.
 
 ```kotlin
-private infix fun subtractMagnitude(other: BigInt): UIntArray {
+private infix fun subtractMagnitude(other: BigUInt): UIntArray {
     val result = UIntArray(max(mag.size, other.mag.size))
     var carry = 0uL
 
@@ -411,7 +372,7 @@ L'algorithme de la soustraction **non signé** est également classique et assez
 Rien de surprenant non plus :
 
 ```kotlin
-operator fun times(other: BigInt): BigInt {
+operator fun times(other: BigUInt): BigUInt {
     if (base != other.base) throw NumberFormatException()
     if (this == zero || other == zero) return zero
 
@@ -429,7 +390,7 @@ operator fun times(other: BigInt): BigInt {
         result[i + mag.size] = carry.toUInt()
     }
 
-    return BigInt(result, base, sign * other.sign)
+    return BigUInt(result, base)
 }
 ```
 
@@ -446,10 +407,10 @@ En little-endian, `nombre shl n` divisera le nombre par $base^n$.
 L'implémentation est immédiate :
 
 ```kotlin
-infix fun shl(n: Int): BigInt {
+infix fun shl(n: Int): BigUInt {
     if (n == 0) return this
-	val result = if (n < mag.size) mag.copyOfRange(n, mag.size) else uintArrayOf(0u)
-    return BigInt(result, base, sign)
+    val result = if (n < mag.size) mag.copyOfRange(n, mag.size) else uintArrayOf(0u)
+    return BigUInt(result, base)
 }
 ```
 
@@ -458,7 +419,7 @@ infix fun shl(n: Int): BigInt {
 L'algorithme est choisi est le cas d'école :
 
 ```kotlin
-infix fun remShl(k: Int): BigInt {
+infix fun remShl(k: Int): BigUInt {
     if (k == 0) return zero
 
     val divResult = this shl k
@@ -471,21 +432,21 @@ Car le reste de $x / n^k$ est $rem = x - n^k \times \lfloor\frac{x}{n^k}\rfloor$
 Note : L'implémentation de `basePowK`.
 
 ```kotlin
-fun basePowK(base: UInt, k: Int): BigInt {
+fun basePowK(base: UInt, k: Int): BigUInt {
     val mag = UIntArray(k + 1).apply {
         set(k, 1u)
     }
-    return BigInt(mag, base, 1)
+    return BigUInt(mag, base)
 }
 ```
 
 Sur Kotlin, `apply` permet enchainer des opérations à la déclaration. Equivalent :
 
 ```kotlin
-fun basePowK(base: UInt, k: Int): BigInt {
+fun basePowK(base: UInt, k: Int): BigUInt {
     val mag = UIntArray(k + 1)
     mag[k] = 1u
-    return BigInt(mag, base, 1)
+    return BigUInt(mag, base)
 }
 ```
 
@@ -500,7 +461,7 @@ Cependant, `div` est actuellement lourd à implémenter. Par conséquent, **nous
 L'implémentation est l'algorithme de *Binary Search* (recherche par dichotomie).
 
 ```kotlin
-operator fun div(other: BigInt): BigInt {
+operator fun div(other: BigUInt): BigUInt {
     if (base != other.base) throw NumberFormatException()
     if (other == zero) throw ArithmeticException("/ by zero")
     if (this == one || this == zero) return zero
@@ -515,14 +476,14 @@ operator fun div(other: BigInt): BigInt {
         val productResult = other * mid
 
         when {
-            productResult == this || prevMid == mid -> {  // Exit condition: mid = this / other.
+            productResult == this || prevMid == mid -> { // Exit condition: mid = this / other.
                 return mid
             }
-            productResult < this -> {  // mid < this / other. Too low.
-                left = mid  // x if after the middle.
+            productResult < this -> { // mid < this / other. Too low.
+                left = mid // x if after the middle.
             }
-            else -> {  // mid > this / other. Too high.
-                right = mid  // x is before the middle.
+            else -> { // mid > this / other. Too high.
+                right = mid // x is before the middle.
             }
         }
         prevMid = mid
@@ -535,19 +496,19 @@ En effet, l'algorithme s'applique car $other \times x$ est strictement croissant
 L'implémentation de `divBy2()` est le cas d'école :
 
 ```kotlin
- fun divBy2(): BigInt {
-        if (this == zero || this == one) return zero
-        val result = mag.copyOf()
+fun divBy2(): BigUInt {
+    if (this == zero || this == one) return zero
+    val result = mag.copyOf()
 
-        var carry = 0u
-        for (i in mag.size - 1 downTo 0) {
-            result[i] = result[i] + carry
-            carry = if (result[i] % 2u == 1u) base else 0u // Store carry if remainder exist
-            result[i] = result[i] shr 1 // Div by 2
-        }
-
-        return BigInt(result, base, sign)
+    var carry = 0u
+    for (i in mag.size - 1 downTo 0) {
+        result[i] = result[i] + carry
+        carry = if (result[i] % 2u == 1u) base else 0u // Store carry if remainder exist
+        result[i] = result[i] shr 1 // Div by 2
     }
+
+    return BigUInt(result, base)
+}
 ```
 
 **Déduction à propos choix de l'algorithme Binary Search : **Le choix de cet algorithme a actuellement un complexité faible : $\mathcal{O}(1)$ si `other` est un multiple de 2. **Cela influencera l'implémentation de l'algorithmie modulaire.**
@@ -557,7 +518,7 @@ L'implémentation de `divBy2()` est le cas d'école :
 Même implémentation de `remShl`. Il s'agit du cas d'école.
 
 ```kotlin
-operator fun rem(other: BigInt): BigInt {
+operator fun rem(other: BigUInt): BigUInt {
     if (base != other.base) throw NumberFormatException()
     if (other == zero) throw ArithmeticException("/ by zero")
     if (this == other || other == one) return zero
@@ -574,33 +535,47 @@ operator fun rem(other: BigInt): BigInt {
 Maintenant, que nous avons implémenté `div`, nous pouvons implémenter `modInverse` selon l'[algorithme d'Euclide étendue](https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm#Modular_integers) sachant `gcd(this, other) == 1` :
 
 ```kotlin
-infix fun modInverse(other: BigInt): BigInt {
+infix fun modInverse(other: BigUInt): BigUInt {
+    if (other <= one) return zero
     var (oldR, r) = this to other
-    var (oldT, t) = one to zero
+    var (t, tIsNegative) = zero to false
+    var (oldT, oldTIsNegative) = one to false
 
-    if (other == one) return zero
+    while (oldR > one) {
+        if (r == zero) // this and other are not coprime
+        return zero
 
-    while (r > one) {
         val q = oldR / r
 
-        (oldR - q * r).let {  // it = oldR - q * r
+        // (r, oldR) = (oldR - q * r, r)
+        (oldR - q * r).let {
             oldR = r
             r = it
         }
 
-        (oldT - q * t).let {  // it = oldT - q * t
-            oldT = t
-            t = it
+        // (t, oldT) = (oldT - q * t, t)
+        val qt = q * t
+        val tempT = t
+        val tempTIsNegative = tIsNegative
+        if (tIsNegative == oldTIsNegative) {
+            if (oldT > qt) { // oldT - q * t >= 0. Default case.
+                t = oldT - qt
+                tIsNegative = oldTIsNegative
+            } else { // oldT - q * t < 0. We swap the members.
+                t = qt - oldT
+                tIsNegative = !tIsNegative // Switch the sign because oldT - q * t < 0
+            }
+        } else { // oldT and t don't have the same sign. The subtraction become an addition.
+            t = oldT + qt
+            tIsNegative = oldTIsNegative
         }
+        oldT = tempT
+        oldTIsNegative = tempTIsNegative
     }
 
-    if (t < zero) t += other
-
-    return t
+    return if (oldTIsNegative) (other - oldT) else oldT
 }
 ```
-
-Notez `.let`, cela permet de faire `(oldR, r) = (r, oldR - q * r)` en séquentiel sans passer par une variable temporaire.
 
 <div style="page-break-after: always; break-after: page;"></div>
 
@@ -611,7 +586,7 @@ Notez `.let`, cela permet de faire `(oldR, r) = (r, oldR - q * r)` en séquentie
 Nous utilisons l'algorithme par division.
 
 ```kotlin
-fun toBase2(): BigInt {
+fun toBase2(): BigUInt {
     if (base == 2u) return this
     val size = ceil((this.mag.size + 1) * log2(base.toDouble()) + 1).toInt()
     val result = UIntArray(size)
@@ -624,7 +599,7 @@ fun toBase2(): BigInt {
         i++
     }
 
-    return BigInt(result, 2u, sign)
+    return BigUInt(result, 2u)
 }
 ```
 
@@ -635,7 +610,7 @@ Nous suspectons que l'algorithme sera plus performant avec un array de magnitude
 `toBase2PowK` va permettre de convertir d'un array de magnitude $n$ vers un array de magnitude en base $2^k$.
 
 ```kotlin
-fun toBase2PowK(k: Int): BigInt {
+fun toBase2PowK(k: Int): BigUInt {
     val newBase = 1u shl k  // 2.pow(k)
     if (base == newBase) return this
     val thisBase2 = this.toBase2()
@@ -650,7 +625,7 @@ fun toBase2PowK(k: Int): BigInt {
         }
     }
 
-    return BigInt(result, newBase, sign)
+    return BigUInt(result, newBase)
 }
 ```
 
@@ -673,7 +648,7 @@ $A \otimes B = A \cdot B \cdot r^{-1} \operatorname{mod} n$
 Rien d'extraordinaire. Nous suivons l'implémentation indiqué par l'algorithme de réduction de Montgomery.
 
 ```kotlin
-fun montgomeryTimes(other: BigInt, n: BigInt, v: BigInt): BigInt {
+fun montgomeryTimes(other: BigUInt, n: BigUInt, v: BigUInt): BigUInt {
     val s = this * other
     val t = (s * v) remShl n.mag.size
     val m = s + t * n
@@ -714,17 +689,17 @@ Donc notre test est :
 
 ```kotlin
 "A to phi(A) with A = 413 * 4096 mod 3233 = 789" {
-    val a = BigInt.valueOf("413", 10).toBase2()
-    val n = BigInt.valueOf("3233", 10).toBase2()
+    val a = BigUInt.valueOf("413", 10).toBase2()
+    val n = BigUInt.valueOf("3233", 10).toBase2()
 
     // Convert to base 2
-    val r = BigInt.basePowK(2u, n.mag.size)
-    val rSquare = BigInt.basePowK(2u, n.mag.size * 2) % n
+    val r = BigUInt.basePowK(2u, n.mag.size)
+    val rSquare = BigUInt.basePowK(2u, n.mag.size * 2) % n
     val v = r - (n modInverse r)
 
     val aMgy = a.montgomeryTimes(rSquare, n, v)
 
-    aMgy shouldBe BigInt.valueOf("789", 10).toBase2()
+    aMgy shouldBe BigUInt.valueOf("789", 10).toBase2()
 }
 ```
 
@@ -734,16 +709,16 @@ Nous pouvons également tester en base 10 :
 
 ```kotlin
 "A to phi(A) with A = 413 * 10000 mod 3233 = 1459 in base 10" {
-    val a = BigInt.valueOf("413", 10)
-    val n = BigInt.valueOf("3233", 10)
+    val a = BigUInt.valueOf("413", 10)
+    val n = BigUInt.valueOf("3233", 10)
 
-    val r = BigInt.basePowK(10u, n.mag.size)
-    val rSquare = BigInt.basePowK(10u, n.mag.size * 2) % n
+    val r = BigUInt.basePowK(10u, n.mag.size)
+    val rSquare = BigUInt.basePowK(10u, n.mag.size * 2) % n
     val v = r - (n modInverse r)
 
     val aMgy = a.montgomeryTimes(rSquare, n, v)
 
-    aMgy shouldBe BigInt.valueOf("1459", 10)
+    aMgy shouldBe BigUInt.valueOf("1459", 10)
 }
 ```
 
@@ -753,29 +728,29 @@ Nous pouvons également tester les 2 sens de transformation de Montgomery :
 
 ```kotlin
 "phi(A) to A with A = 413 * 4096 mod 3233" {
-    val a = BigInt.valueOf("413", 10).toBase2()
-    val n = BigInt.valueOf("3233", 10).toBase2()
+    val a = BigUInt.valueOf("413", 10).toBase2()
+    val n = BigUInt.valueOf("3233", 10).toBase2()
 
-    val r = BigInt.basePowK(2u, n.mag.size)
-    val rSquare = BigInt.basePowK(2u, n.mag.size * 2) % n
+    val r = BigUInt.basePowK(2u, n.mag.size)
+    val rSquare = BigUInt.basePowK(2u, n.mag.size * 2) % n
     val v = r - (n modInverse r)
 
     val aMgy = a.montgomeryTimes(rSquare, n, v)
-    val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 2u), n, v)
+    val aNotMgy = aMgy.montgomeryTimes(BigUInt.one(base = 2u), n, v)
 
     aNotMgy shouldBe a
 }
 
 "phi(A) to A with A = 413 * 10000 mod 3233 = 1459 in base 10" {
-    val a = BigInt.valueOf("413", 10)
-    val n = BigInt.valueOf("3233", 10)
+    val a = BigUInt.valueOf("413", 10)
+    val n = BigUInt.valueOf("3233", 10)
 
-    val r = BigInt.basePowK(10u, n.mag.size)
-    val rSquare = BigInt.basePowK(10u, n.mag.size * 2) % n
+    val r = BigUInt.basePowK(10u, n.mag.size)
+    val rSquare = BigUInt.basePowK(10u, n.mag.size * 2) % n
     val v = r - (n modInverse r)
 
     val aMgy = a.montgomeryTimes(rSquare, n, v)
-    val aNotMgy = aMgy.montgomeryTimes(BigInt.one(base = 10u), n, v)
+    val aNotMgy = aMgy.montgomeryTimes(BigUInt.one(base = 10u), n, v)
 
     aNotMgy shouldBe a
 }
@@ -787,7 +762,7 @@ Ce qui donne :
 
 **Notez bien que en base 2, le temps est divisé par 3 pour le passage sous forme de Montgomery.**
 
-En effet, remarquez la ligne `val rSquare = BigInt.basePowK(10u, n.mag.size * 2) % n`, **nous utilisons actuellement le modulo !**
+En effet, remarquez la ligne `val rSquare = BigUInt.basePowK(10u, n.mag.size * 2) % n`, **nous utilisons actuellement le modulo !**
 
 Egalement pour `modInverse` !
 
@@ -800,7 +775,7 @@ Pour que le calcul de $\bmod n$, ou plus précisément $/n$, soit efficace, il f
 L'algorithme utilisé est [*square-and-multiply*](https://en.wikipedia.org/wiki/Exponentiation_by_squaring).
 
 ```kotlin
-fun modPow(exponent: BigInt, n: BigInt): BigInt {
+fun modPow(exponent: BigUInt, n: BigUInt): BigUInt {
     if (base != n.base) throw NumberFormatException()
 
     val exponentBase2 = exponent.toBase2()
@@ -896,10 +871,10 @@ Faisons ligne par ligne :
 fun main() {
     val workingBase = 16
 
-    val d = BigInt.valueOf("...", workingBase)  // Entrée tronquée
-    val c1 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
-    val c2 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
-    val n = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val d = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c1 = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c2 = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
+    val n = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
 
     println("decrypting")
     measureTime {
@@ -922,11 +897,11 @@ Résultat satisfaisant.
 
 <div style="page-break-after: always; break-after: page;"></div>
 
-#### Test 2 : Base 16 ramené à la base 65536
+#### Test 2 : Base 16 ramené à la base $2^{31}$
 
 ##### Paramètres
 
-- Base de travail : 16 (hexadecimal) ramené à 65536
+- Base de travail : 16 (hexadecimal) ramené à $2^{31}$
 
 - Entrées :
 
@@ -940,8 +915,8 @@ Résultat satisfaisant.
 - Attendu :
 
   ```txt
-  m1 = { 123 } (123 en base 65536)
-  m2 = { 200 } (200 en base 65536)
+  m1 = { 123 } (123 en base 2.pow(31))
+  m2 = { 200 } (200 en base 2.pow(31))
   ```
 
 ##### Code / Protocole
@@ -952,10 +927,10 @@ Résultat satisfaisant.
 fun main() {
     val workingBase = 16
 
-    val d = BigInt.valueOf("...", workingBase).toBase2PowK(16)  // Entrée tronquée
-    val c1 = BigInt.valueOf("...", workingBase).toBase2PowK(16)  // Entrée tronquée
-    val c2 = BigInt.valueOf("...", workingBase).toBase2PowK(16)  // Entrée tronquée
-    val n = BigInt.valueOf("...", workingBase).toBase2PowK(16)  // Entrée tronquée
+    val d = BigUInt.valueOf("...", workingBase).toBase2PowK(31)  // Entrée tronquée
+    val c1 = BigUInt.valueOf("...", workingBase).toBase2PowK(31)  // Entrée tronquée
+    val c2 = BigUInt.valueOf("...", workingBase).toBase2PowK(31)  // Entrée tronquée
+    val n = BigUInt.valueOf("...", workingBase).toBase2PowK(31)  // Entrée tronquée
 
     println("decrypting")
     measureTime {
@@ -971,10 +946,10 @@ fun main() {
 decrypting
 {123}
 {200}
-Time Elapsed : 2.39s
+Time Elapsed : 944ms
 ```
 
-Résultat satisfaisant.
+Résultat très satisfaisant. **Il s'agit du résultat le plus rapide.**
 
 <div style="page-break-after: always; break-after: page;"></div>
 
@@ -1008,10 +983,10 @@ Résultat satisfaisant.
 fun main() {
     val workingBase = 10
 
-    val d = BigInt.valueOf("...", workingBase)  // Entrée tronquée
-    val c1 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
-    val c2 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
-    val n = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val d = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c1 = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c2 = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
+    val n = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
 
     println("decrypting")
     measureTime {
@@ -1027,7 +1002,7 @@ fun main() {
 decrypting
 123
 200
-Time Elapsed : 282s
+Time Elapsed : 294s
 ```
 
 Résultat satisfaisant malgré le temps de traitement élevé.
@@ -1064,10 +1039,10 @@ Résultat satisfaisant malgré le temps de traitement élevé.
 fun main() {
     val workingBase = 2
 
-    val d = BigInt.valueOf("...", workingBase)  // Entrée tronquée
-    val c1 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
-    val c2 = BigInt.valueOf("...", workingBase)  // Entrée tronquée
-    val n = BigInt.valueOf("...", workingBase)  // Entrée tronquée
+    val d = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c1 = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
+    val c2 = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
+    val n = BigUInt.valueOf("...", workingBase)  // Entrée tronquée
 
     println("decrypting")
     measureTime {
@@ -1083,7 +1058,7 @@ fun main() {
 decrypting
 1111011
 11001000
-Time Elapsed : 447s
+Time Elapsed : 487s
 ```
 
 Résultat satisfaisant mais un temps trop élevé. Cela peut s'expliquer, car, en base 2, nous utilisons aucune optimisation de l'ordinateur.
@@ -1097,9 +1072,9 @@ Le comportement de RSA est immédiat :
 ```kotlin
 @ExperimentalUnsignedTypes
 object Rsa {
-    fun decrypt(c: BigInt, d: BigInt, n: BigInt) = c.modPow(d, n)
+    fun decrypt(c: BigUInt, d: BigUInt, n: BigUInt) = c.modPow(d, n)
 
-    fun encrypt(m: BigInt, e: BigInt, n: BigInt) = m.modPow(e, n)
+    fun encrypt(m: BigUInt, e: BigUInt, n: BigUInt) = m.modPow(e, n)
 }
 ```
 
@@ -1135,12 +1110,12 @@ Par conséquent, nous allons tester différente base $2^k$
                     val writer = File("output_2790_413_3233_2to64_$iteration.txt").printWriter()
                     writer.use { out ->
                         checkAll(Exhaustive.ints(1..31)) { k ->
-                            val c = BigInt.valueOf("101011100110", 2).toBase2PowK(k)
-                            val d = BigInt.valueOf("110011101", 2).toBase2PowK(k)
-                            val n = BigInt.valueOf("110010100001", 2).toBase2PowK(k)
-                            val expected = BigInt.valueOf("1000001", 2).toBase2PowK(k)
+                            val c = BigUInt.valueOf("101011100110", 2).toBase2PowK(k)
+                            val d = BigUInt.valueOf("110011101", 2).toBase2PowK(k)
+                            val n = BigUInt.valueOf("110010100001", 2).toBase2PowK(k)
+                            val expected = BigUInt.valueOf("1000001", 2).toBase2PowK(k)
 
-                            var result: BigInt
+                            var result: BigUInt
                             measureTime {
                                 result = Rsa.decrypt(c, d, n)
                             }.also {
@@ -1229,12 +1204,12 @@ La première courbe *Try n°0* peut être plus élevé que les autres du fait qu
                     val writer = File("output_Big_2to64_$iteration.txt").printWriter()
                     writer.use { out ->
                         checkAll(Exhaustive.ints(1..31)) { k ->
-                            val c = BigInt.valueOf("...", 2).toBase2PowK(k)
-                            val d = BigInt.valueOf("...", 2).toBase2PowK(k)
-                            val n = BigInt.valueOf("...", 2).toBase2PowK(k)
-                            val expected = BigInt.valueOf("1111011", 2).toBase2PowK(k)
+                            val c = BigUInt.valueOf("...", 2).toBase2PowK(k)
+                            val d = BigUInt.valueOf("...", 2).toBase2PowK(k)
+                            val n = BigUInt.valueOf("...", 2).toBase2PowK(k)
+                            val expected = BigUInt.valueOf("1111011", 2).toBase2PowK(k)
 
-                            var result: BigInt
+                            var result: BigUInt
                             measureTime {
                                 result = Rsa.decrypt(c, d, n)
                             }.also {
@@ -1256,37 +1231,37 @@ Note : Le test est sous format [Kotest](https://kotest.io).
 ##### Résultats
 
 ```txt
-Base 2^1, m = 1111011, Time elapsed: 229s
-Base 2^2, m = 1323, Time elapsed: 60.3s
-Base 2^3, m = 173, Time elapsed: 27.3s
-Base 2^4, m = 7b, Time elapsed: 15.3s
-Base 2^5, m = 3r, Time elapsed: 9.77s
-Base 2^6, m = {59, 1}, Time elapsed: 6.71s
-Base 2^7, m = {123}, Time elapsed: 4.92s
-Base 2^8, m = {123}, Time elapsed: 3.79s
-Base 2^9, m = {123}, Time elapsed: 3.00s
-Base 2^10, m = {123}, Time elapsed: 2.40s
-Base 2^11, m = {123}, Time elapsed: 2.09s
-Base 2^12, m = {123}, Time elapsed: 1.71s
-Base 2^13, m = {123}, Time elapsed: 1.47s
-Base 2^14, m = {123}, Time elapsed: 1.31s
-Base 2^15, m = {123}, Time elapsed: 1.16s
-Base 2^16, m = {123}, Time elapsed: 998ms
+Base 2^1, m = 1111011, Time elapsed: 235s
+Base 2^2, m = 1323, Time elapsed: 54.8s
+Base 2^3, m = 173, Time elapsed: 23.9s
+Base 2^4, m = 7b, Time elapsed: 14.4s
+Base 2^5, m = 3r, Time elapsed: 8.99s
+Base 2^6, m = {59, 1}, Time elapsed: 6.07s
+Base 2^7, m = {123}, Time elapsed: 4.29s
+Base 2^8, m = {123}, Time elapsed: 3.42s
+Base 2^9, m = {123}, Time elapsed: 2.88s
+Base 2^10, m = {123}, Time elapsed: 2.42s
+Base 2^11, m = {123}, Time elapsed: 2.04s
+Base 2^12, m = {123}, Time elapsed: 1.69s
+Base 2^13, m = {123}, Time elapsed: 1.36s
+Base 2^14, m = {123}, Time elapsed: 1.32s
+Base 2^15, m = {123}, Time elapsed: 1.11s
+Base 2^16, m = {123}, Time elapsed: 1.02s
 Base 2^17, m = {123}, Time elapsed: 931ms
-Base 2^18, m = {123}, Time elapsed: 750ms
-Base 2^19, m = {123}, Time elapsed: 704ms
-Base 2^20, m = {123}, Time elapsed: 656ms
-Base 2^21, m = {123}, Time elapsed: 624ms
-Base 2^22, m = {123}, Time elapsed: 520ms
-Base 2^23, m = {123}, Time elapsed: 484ms
-Base 2^24, m = {123}, Time elapsed: 440ms
-Base 2^25, m = {123}, Time elapsed: 398ms
-Base 2^26, m = {123}, Time elapsed: 400ms
-Base 2^27, m = {123}, Time elapsed: 389ms
-Base 2^28, m = {123}, Time elapsed: 361ms
-Base 2^29, m = {123}, Time elapsed: 342ms
-Base 2^30, m = {123}, Time elapsed: 338ms
-Base 2^31, m = {123}, Time elapsed: 295ms
+Base 2^18, m = {123}, Time elapsed: 776ms
+Base 2^19, m = {123}, Time elapsed: 669ms
+Base 2^20, m = {123}, Time elapsed: 626ms
+Base 2^21, m = {123}, Time elapsed: 570ms
+Base 2^22, m = {123}, Time elapsed: 503ms
+Base 2^23, m = {123}, Time elapsed: 430ms
+Base 2^24, m = {123}, Time elapsed: 387ms
+Base 2^25, m = {123}, Time elapsed: 364ms
+Base 2^26, m = {123}, Time elapsed: 359ms
+Base 2^27, m = {123}, Time elapsed: 308ms
+Base 2^28, m = {123}, Time elapsed: 305ms
+Base 2^29, m = {123}, Time elapsed: 291ms
+Base 2^30, m = {123}, Time elapsed: 275ms
+Base 2^31, m = {123}, Time elapsed: 260ms
 ```
 
 En l'exécutant 3 fois :
@@ -1311,3 +1286,4 @@ Le temps de conversion de la base $n$ vers la base $2^k$ est également courte (
 
 ![FromBase16toBase2PowK](assets/FromBase16toBase2PowK.png)
 
+**Il est donc préférable d'appliquer `.toBase2PowK(31)` avant de faire `modPow`.**
