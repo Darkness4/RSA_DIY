@@ -5,24 +5,23 @@ import me.nguye.utils.stripTrailingZero
 import me.nguye.utils.toBase2Array
 import me.nguye.utils.toBase2PowK
 import kotlin.math.max
-import kotlin.math.pow
 
 @ExperimentalUnsignedTypes
 class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
     companion object {
         private const val DEFAULT_BASE_STRING = 10
-        private const val BASE = 2147483648u  // 2.pow(31)
+        private const val BASE = 2147483648u // 2.pow(31)
         private const val EXPONENT = 31
 
         /**
          * Store the [str] in the [BigUInt] object with the [radix].
          *
-         * E.g.: 1010 --> BigInt({0, 1, 0, 1}, base = 2, sign = 1)
+         * E.g.: 123 --> BigUInt({ 123 })
          */
         fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigUInt {
             var i = 0
             val array = if (str.first() == '-' || str.first() == '+') {
-                i++
+                i++ // Skip the first
                 UIntArray(str.length - 1)
             } else {
                 UIntArray(str.length)
@@ -38,8 +37,8 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
             return BigUInt(mag)
         }
 
-        val zero by lazy { BigUInt(uintArrayOf(0u)) }
-        val one by lazy { BigUInt(uintArrayOf(1u)) }
+        val zero = BigUInt(uintArrayOf(0u))
+        val one = BigUInt(uintArrayOf(1u))
 
         /**
          * Returns BASE.pow(k).
@@ -85,22 +84,22 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
         // Add common parts of both numbers
         while (i < mag.size && i < other.mag.size) {
             val sum: ULong = mag[i] + other.mag[i] + carry
-            result[i] = (sum % BASE).toUInt()
             carry = sum / BASE
+            result[i] = (sum % BASE).toUInt()
             i++
         }
 
         // Add the last part
         while (i < mag.size) {
             val sum: ULong = mag[i] + carry
-            result[i] = (sum % BASE).toUInt()
             carry = sum / BASE
+            result[i] = (sum % BASE).toUInt() // sum % BASE
             i++
         }
         while (i < other.mag.size) {
             val sum: ULong = other.mag[i] + carry
-            result[i] = (sum % BASE).toUInt()
             carry = sum / BASE
+            result[i] = (sum % BASE).toUInt()
             i++
         }
 
@@ -119,8 +118,7 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
     fun modMinus(other: BigUInt, m: BigUInt): BigUInt {
         val thisMod = if (this >= m || this < zero) this % m else this
         val otherMod = if (other >= m || other < zero) other % m else other
-        val result = thisMod - otherMod
-        return if (result < zero) result + m else result
+        return if (thisMod >= otherMod) thisMod - otherMod else m + thisMod - otherMod
     }
 
     operator fun minus(other: BigUInt): BigUInt {
@@ -202,29 +200,29 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
      *
      * Algorithm description: Simple copy with the selected range.
      */
-    infix fun shl(n: Int): BigUInt {
+    infix fun magShl(n: Int): BigUInt {
         if (n == 0) return this
         val result = if (n < mag.size) mag.copyOfRange(n, mag.size) else uintArrayOf(0u)
         return BigUInt(result)
     }
 
     /**
-     * Return the remainder of `this mod base.pow(k)`.
+     * Return the remainder of `this / base.pow(k)`.
      *
      * Algorithm description: School case algorithm.
      * Remainder = a - b * Quotient.
      */
-    infix fun remShl(k: Int): BigUInt {
+    infix fun remMagShl(k: Int): BigUInt {
         if (k == 0) return zero
 
-        val divResult = this shl k
+        val divResult = this magShl k
         return this - basePowK(k) * divResult
     }
 
     /**
      * Return this / 2
      */
-    fun divBy2() = BigUInt(mag.divBy2(BASE))
+    private fun divBy2() = BigUInt(mag.divBy2(radix=BASE))
 
     /**
      * Returns this / [other]
@@ -280,14 +278,13 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
      * Extended Euclidean Algorithm assuming this coprime [other].
      */
     infix fun modInverse(other: BigUInt): BigUInt {
-        if (other <= one) return zero
+        if (other <= one) throw ArithmeticException("/ by zero")
         var (oldR, r) = this to other
         var (t, tIsNegative) = zero to false
         var (oldT, oldTIsNegative) = one to false
 
         while (oldR > one) {
-            if (r == zero) // this and other are not coprime
-                return zero
+            if (r == zero) throw ArithmeticException("/ by zero: not coprime with other")
 
             val q = oldR / r
 
@@ -328,9 +325,9 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
      */
     fun montgomeryTimes(other: BigUInt, n: BigUInt, v: BigUInt): BigUInt {
         val s = this * other
-        val t = (s * v) remShl n.mag.size  // m % base.pow(n)
+        val t = (s * v) remMagShl n.mag.size // m % base.pow(n)
         val m = s + t * n
-        val u = m shl n.mag.size  // m / base.pow(n)
+        val u = m magShl n.mag.size // m / base.pow(n)
         return if (u >= n) u - n else u
     }
 
@@ -338,7 +335,7 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
      * this ^ exponent mod n using Montgomery Reduction Algorithm and Square-and-Multiply Algorithm.
      */
     fun modPow(exponent: BigUInt, n: BigUInt): BigUInt {
-        val exponentBase2 = exponent.mag.toBase2Array(radix=BASE)
+        val exponentBase2 = exponent.mag.toBase2Array(radix = BASE)
         val r = basePowK(n.mag.size)
         val rSquare = basePowK(n.mag.size * 2) % n
 
@@ -361,21 +358,10 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
     }
 
     override fun toString(): String {
-        val builder = StringBuilder().also {
-            it.append(
-                this.mag.joinToString(
-                    prefix = "{",
-                    postfix = "}"
-                )
-            )
-        }
-        return builder.toString()
-    }
-
-    fun toLong(): Long {
-        return this.mag.foldIndexed(0L) { index, acc, value ->
-            acc + BASE.toDouble().pow(index.toDouble()).toLong() * value.toLong()
-        }
+        return this.mag.joinToString(
+            prefix = "{",
+            postfix = "}"
+        )
     }
 
     override fun compareTo(other: BigUInt): Int {

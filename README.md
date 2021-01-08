@@ -172,6 +172,7 @@ fun UIntArray.toBase2PowK(radix: UInt, k: Int): UIntArray {
     for (chunkIndex in result.indices) {
         for (offset in 0 until k) { // k = chunckSize
             // result[chunkIndex] += x * 2.pow(offset)
+            //
             // x is a bit. x = thisBase2.mag[chunkIndex * k + offset]
             // If thisBase2.mag[chunkIndex * k + offset] fails, it returns 0u.
             result[chunkIndex] += thisBase2.elementAtOrElse(chunkIndex * k + offset) { 0u } shl offset
@@ -254,11 +255,11 @@ Nous faisons cela, parce qu'un nombre est comparable et aidera les futures impl�
 ```kotlin
 class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
     override fun compareTo(other: BigUInt): Int {
-        TODO("Not implemented yer")
+        TODO("Not implemented yet")
     }
     
     override fun equals(other: Any?): Boolean {
-        TODO("Not implemented yer")
+        TODO("Not implemented yet")
     }
 }
 ```
@@ -490,29 +491,29 @@ De la même manière que `plus` et `minus`, `% BASE` et `/ BASE` permet d'évite
 
 <div style="page-break-after: always; break-after: page;"></div>
 
-### `shl` ou littéralement shift left (pas bitwise)
+### `magShl` ou littéralement "shift left magnitude array"
 
-En little-endian, `nombre shl n` divisera le nombre par $base^n$ (où $base = 2^{31}$).
+En little-endian, `nombre magShl n` divisera le nombre par $base^n$ (où $base = 2^{31}$).
 
 L'implémentation est immédiate :
 
 ```kotlin
-infix fun shl(n: Int): BigUInt {
+infix fun magShl(n: Int): BigUInt {
     if (n == 0) return this
     val result = if (n < mag.size) mag.copyOfRange(n, mag.size) else uintArrayOf(0u)
     return BigUInt(result)
 }
 ```
 
-### `remShl` ou le reste du shift left
+### `remMagShl` ou le reste de `magShl`
 
 L'algorithme est choisi est le cas d'école :
 
 ```kotlin
-infix fun remShl(k: Int): BigUInt {
+infix fun remMagShl(k: Int): BigUInt {
     if (k == 0) return zero
 
-    val divResult = this shl k
+    val divResult = this magShl k
     return this - basePowK(k) * divResult
 }
 ```
@@ -592,7 +593,7 @@ fun divBy2() = BigUInt(mag.divBy2(BASE))
 
 ### `rem` ou modulo
 
-Même implémentation de `remShl`. Il s'agit du cas d'école.
+Même implémentation de `remMagShl`. Il s'agit du cas d'école.
 
 ```kotlin
 operator fun rem(other: BigUInt): BigUInt {
@@ -612,14 +613,13 @@ Maintenant, que nous avons implémenté `div`, nous pouvons implémenter `modInv
 
 ```kotlin
 infix fun modInverse(other: BigUInt): BigUInt {
-    if (other <= one) return zero
+    if (other <= one) throw ArithmeticException("/ by zero")
     var (oldR, r) = this to other
     var (t, tIsNegative) = zero to false
     var (oldT, oldTIsNegative) = one to false
 
     while (oldR > one) {
-        if (r == zero) // this and other are not coprime
-        return zero
+        if (r == zero) throw ArithmeticException("/ by zero: not coprime with other")
 
         val q = oldR / r
 
@@ -668,16 +668,16 @@ Rien d'extraordinaire. Nous suivons l'implémentation indiqué par l'algorithme 
 ```kotlin
 fun montgomeryTimes(other: BigUInt, n: BigUInt, v: BigUInt): BigUInt {
     val s = this * other
-    val t = (s * v) remShl n.mag.size
+    val t = (s * v) remMagShl n.mag.size // m % base.pow(n)
     val m = s + t * n
-    val u = m shl n.mag.size
+    val u = m magShl n.mag.size // m / base.pow(n)
     return if (u >= n) u - n else u
 }
 ```
 
 $v$ tel que  $n \cdot v \equiv -1 \bmod r$. $r$ tel que si $base^{k-1} \leqslant n < base^k$ alors $r = base^k$.
 
-Notez `remShl` qui signifie "remainder of shift left `n.mag.size` times" soit "reste de $/base^\text{n.mag.size}$".
+Notez `remMagShl` qui signifie "remainder of the shift `n.mag.size` times left of the magnitude array" soit "reste de $/base^\text{n.mag.size}$".
 
 ### Tests de `montgomeryTimes`
 
@@ -707,16 +707,16 @@ Donc notre test est :
 
 ```kotlin
 "A to phi(A) with A = 413 * BASE mod 3233 = 882" {
-    val a = BigUInt.valueOf("413", 10)
-    val n = BigUInt.valueOf("3233", 10)
+    val a = BigUInt.valueOf("413")
+    val n = BigUInt.valueOf("3233")
 
     val r = BigUInt.basePowK(n.mag.size)
     val rSquare = BigUInt.basePowK(n.mag.size * 2) % n
     val v = r - (n modInverse r)
     val aMgy = a.montgomeryTimes(rSquare, n, v)
 
-    v shouldBe BigUInt.valueOf("1721706655", 10)
-    aMgy shouldBe BigUInt.valueOf("882", 10)
+    v shouldBe BigUInt.valueOf("1721706655")
+    aMgy shouldBe BigUInt.valueOf("882")
 }
 ```
 
@@ -728,8 +728,8 @@ Nous pouvons également tester les 2 sens de transformation de Montgomery :
 
 ```kotlin
 "phi(A) to A with A = 413 * BASE mod 3233 = 882" {
-    val a = BigUInt.valueOf("413", 10)
-    val n = BigUInt.valueOf("3233", 10)
+    val a = BigUInt.valueOf("413")
+    val n = BigUInt.valueOf("3233")
 
     val r = BigUInt.basePowK(n.mag.size)
     val rSquare = BigUInt.basePowK(n.mag.size * 2) % n
@@ -843,18 +843,17 @@ Faisons ligne par ligne :
 @ExperimentalTime
 @ExperimentalUnsignedTypes
 fun main() {
-    val radix = 10
-
-    val d = BigUInt.valueOf("...", radix)  // Entrée tronquée
-    val c1 = BigUInt.valueOf("...", radix)  // Entrée tronquée
-    val c2 = BigUInt.valueOf("...", radix)  // Entrée tronquée
-    val n = BigUInt.valueOf("...", radix)  // Entrée tronquée
-
     println("decrypting")
     measureTime {
+        val d = BigUInt.valueOf("...") // Entrée tronquée
+        val c1 = BigUInt.valueOf("...") // Entrée tronquée
+        val c2 = BigUInt.valueOf("...") // Entrée tronquée
+        val n = BigUInt.valueOf("...") // Entrée tronquée
         println(c1.modPow(d, n))
         println(c2.modPow(d, n))
-    }.also { println("Time Elapsed : $it") }
+    }.also {
+        println("Time Elapsed : $it")
+    }
 }
 ```
 
@@ -864,7 +863,7 @@ fun main() {
 decrypting
 {123}
 {200}
-Time Elapsed : 277ms
+Time Elapsed : 364ms
 ```
 
 Résultat satisfaisant et rapide.
