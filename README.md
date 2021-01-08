@@ -6,8 +6,9 @@ Notre objet `BigUInt` stocke :
 
 - `mag` : Un array de magnitude de type `UIntArray` avec les éléments de taille maximum $2^{31}=2147483648$, en little endian. 
 
+(Nous ne prenons pas $2^{32}$ simplement parce qu'il y a des pertes de performances avec de nombreuses conversions vers `ULong`)
 
-La raison de stocker un tableau de magnitude et une base de travail est que nous allons analyser le String de la valeur.
+Si nous devons analyser un String, celui-ci sera convertit en base $2^{31}$
 
 Example :
 
@@ -57,21 +58,18 @@ L'algorithme est assez simple, mais ne supporte que les bases 2 à 36 (car, en b
 
 En résumé :
 
-- Vérifie s'il existe un signe et attribue en fonction de la présence de signe
-- Convertit les charactères en digit et les stocke dans un array
-- Cet array en base `radix` est convertir en base $2^{31}$
+- Vérifie s'il existe un signe et attribue l'espace en fonction de la présence de signe.
+- Convertit les charactères en digit et les stocke dans un array.
+- Convertit cet array de base `radix` en base $2^{31}$
 
 ```kotlin
 fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigUInt {
     var i = 0
-    val array = when {
-        str.first() == '-' || str.first() == '+' -> {
-            i++
-            UIntArray(str.length - 1)
-        }
-        else -> {
-            UIntArray(str.length)
-        }
+    val array = if (str.first() == '-' || str.first() == '+') {
+        i++
+        UIntArray(str.length - 1)
+    } else {
+        UIntArray(str.length)
     }
 
     for (j in array.size - 1 downTo 0) {
@@ -85,7 +83,7 @@ fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigUInt {
 }
 ```
 
-Ici, `EXPONENT` est $31$.
+Ici, `EXPONENT=31`.
 
 Note : Sur Kotlin, chaque expression de contrôle de flux permet de retourner la dernière valeur. Exemple :
 
@@ -120,7 +118,7 @@ class BigUInt(mag: UIntArray) {
 }
 ```
 
-Ce qui permet :
+Ce qui permet d'utiliser la méthode sans instancier :
 
 ```kotlin
 BigUInt.valueOf("12345", 10)
@@ -152,7 +150,7 @@ ImNotASingletonBut.hello()
 
 Nous avons définie des classes utilitaires pour convertir des arrays d'une base à une autre.
 
-Convertisseur base $n$ vers base $2^k$.
+Convertisseur base $n$ vers base $2^k$ :
 
 ```kotlin
 /**
@@ -165,7 +163,6 @@ Convertisseur base $n$ vers base $2^k$.
  * Self-Explanatory Example with *137 to base 16 (2^4)*:
  * -  137 = 0b10001001
  * -  0b10001001 = 1000 | 1001 = 0x89
- */1 | 0001 = 0x11
  */
 @ExperimentalUnsignedTypes
 fun UIntArray.toBase2PowK(radix: UInt, k: Int): UIntArray {
@@ -185,9 +182,7 @@ fun UIntArray.toBase2PowK(radix: UInt, k: Int): UIntArray {
 }
 ```
 
-Le convertisseur base $n$ vers base $2$.
-
-
+Le convertisseur base $n$ vers base $2$ :
 
 ```kotlin
 /**
@@ -254,7 +249,7 @@ fun UIntArray.divBy2(radix: UInt): UIntArray {
 
 ### Implémenter `Comparable<BigUInt>`
 
-Nous faisons cela, parce qu'un nombre est comparable et aidera les implémentations futures :
+Nous faisons cela, parce qu'un nombre est comparable et aidera les futures implémentations :
 
 ```kotlin
 class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
@@ -497,7 +492,7 @@ De la même manière que `plus` et `minus`, `% BASE` et `/ BASE` permet d'évite
 
 ### `shl` ou littéralement shift left (pas bitwise)
 
-En little-endian, `nombre shl n` divisera le nombre par $base^n$.
+En little-endian, `nombre shl n` divisera le nombre par $base^n$ (où $base = 2^{31}$).
 
 L'implémentation est immédiate :
 
@@ -658,6 +653,8 @@ infix fun modInverse(other: BigUInt): BigUInt {
 }
 ```
 
+L'implémentation est plus facile avec des nombres signés. Nous n'aurions pas besoin de stocker le signe.
+
 <div style="page-break-after: always; break-after: page;"></div>
 
 ## Algorithmie sous la forme de Montgomery
@@ -680,7 +677,7 @@ fun montgomeryTimes(other: BigUInt, n: BigUInt, v: BigUInt): BigUInt {
 
 $v$ tel que  $n \cdot v \equiv -1 \bmod r$. $r$ tel que si $base^{k-1} \leqslant n < base^k$ alors $r = base^k$.
 
-Notez `remShl` qui signifie "reste de shift left `n.mag.size` fois" soit "reste de $/base^\text{n.mag.size}$".
+Notez `remShl` qui signifie "remainder of shift left `n.mag.size` times" soit "reste de $/base^\text{n.mag.size}$".
 
 ### Tests de `montgomeryTimes`
 

@@ -21,14 +21,11 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
          */
         fun valueOf(str: String, radix: Int = DEFAULT_BASE_STRING): BigUInt {
             var i = 0
-            val array = when {
-                str.first() == '-' || str.first() == '+' -> {
-                    i++
-                    UIntArray(str.length - 1)
-                }
-                else -> {
-                    UIntArray(str.length)
-                }
+            val array = if (str.first() == '-' || str.first() == '+') {
+                i++
+                UIntArray(str.length - 1)
+            } else {
+                UIntArray(str.length)
             }
 
             for (j in array.size - 1 downTo 0) {
