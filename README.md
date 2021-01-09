@@ -471,14 +471,14 @@ operator fun times(other: BigUInt): BigUInt {
 
     // School case multiplication
     for (i in other.mag.indices) {
-        var carry = 0uL
+        var carry = 0u
         for (j in mag.indices) {
             // Note: ULong is **necessary** to avoid overflow of other.mag[i] * mag[j].
-            val sum: ULong = result[i + j].toULong() + other.mag[i].toULong() * mag[j].toULong() + carry
-            carry = sum / BASE
+            val sum: ULong = other.mag[i].toULong() * mag[j].toULong() + result[i + j] + carry
+            carry = (sum / BASE).toUInt()
             result[i + j] = (sum % BASE).toUInt()
         }
-        result[i + mag.size] = carry.toUInt()
+        result[i + mag.size] = carry
     }
 
     return BigUInt(result)
@@ -566,15 +566,9 @@ operator fun div(other: BigUInt): BigUInt {
         val productResult = other * mid
 
         when {
-            productResult == this || prevMid == mid -> { // Exit condition: mid = this / other.
-                return mid
-            }
-            productResult < this -> { // mid < this / other. Too low.
-                left = mid // x if after the middle.
-            }
-            else -> { // mid > this / other. Too high.
-                right = mid // x is before the middle.
-            }
+            productResult == this || prevMid == mid -> return mid // Exit condition: mid = this / other.
+            productResult < this -> left = mid // mid < this / other. Too low.
+            else -> right = mid // mid > this / other. Too high.
         }
         prevMid = mid
     }

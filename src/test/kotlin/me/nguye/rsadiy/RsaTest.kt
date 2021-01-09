@@ -22,7 +22,6 @@ class RsaTest : WordSpec({
                 println("m = $result, Time elapsed: $it")
                 println("We are aiming at: 16ms from BigInteger")
             }
-
             result shouldBe expected
         }
     }

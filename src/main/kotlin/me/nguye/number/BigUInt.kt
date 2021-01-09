@@ -78,33 +78,33 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
      */
     private infix fun addMagnitude(other: BigUInt): UIntArray {
         val result = UIntArray(max(mag.size, other.mag.size) + 1)
-        var carry = 0uL
+        var carry = 0u
         var i = 0
 
         // Add common parts of both numbers
         while (i < mag.size && i < other.mag.size) {
-            val sum: ULong = mag[i] + other.mag[i] + carry
-            carry = sum / BASE
+            val sum: ULong = mag[i].toULong() + other.mag[i] + carry
+            carry = (sum / BASE).toUInt()
             result[i] = (sum % BASE).toUInt()
             i++
         }
 
         // Add the last part
         while (i < mag.size) {
-            val sum: ULong = mag[i] + carry
-            carry = sum / BASE
+            val sum: ULong = mag[i].toULong() + carry
+            carry = (sum / BASE).toUInt()
             result[i] = (sum % BASE).toUInt() // sum % BASE
             i++
         }
         while (i < other.mag.size) {
-            val sum: ULong = other.mag[i] + carry
-            carry = sum / BASE
+            val sum: ULong = other.mag[i].toULong() + carry
+            carry = (sum / BASE).toUInt()
             result[i] = (sum % BASE).toUInt()
             i++
         }
 
         // Add the last carry (if exists)
-        if (carry > 0u) result[i] = carry.toUInt()
+        if (carry > 0u) result[i] = carry
         return result
     }
 
@@ -137,7 +137,7 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
      */
     private infix fun subtractMagnitude(other: BigUInt): UIntArray {
         val result = UIntArray(max(mag.size, other.mag.size))
-        var carry = 0uL
+        var carry = 0u
 
         val (largest, smallest) = if (this.compareUnsignedTo(other) < 0) {
             other to this
@@ -149,10 +149,10 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
         for (i in smallest.mag.indices) {
             var sub: ULong
             if (largest.mag[i] < carry + smallest.mag[i]) {
-                sub = largest.mag[i] + (BASE - carry - smallest.mag[i])
+                sub = largest.mag[i].toULong() + (BASE - carry - smallest.mag[i])
                 carry = 1u
             } else {
-                sub = largest.mag[i] - smallest.mag[i] - carry
+                sub = largest.mag[i].toULong() - smallest.mag[i] - carry
                 carry = 0u
             }
             result[i] = sub.toUInt()
@@ -162,10 +162,10 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
         for (i in smallest.mag.size until largest.mag.size) {
             var sub: ULong
             if (largest.mag[i] < carry) {
-                sub = largest.mag[i] + (BASE - carry)
+                sub = largest.mag[i].toULong() + (BASE - carry)
                 carry = 1u
             } else {
-                sub = largest.mag[i] - carry
+                sub = largest.mag[i].toULong() - carry
                 carry = 0u
             }
             result[i] = sub.toUInt()
@@ -180,14 +180,14 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
 
         // School case multiplication
         for (i in other.mag.indices) {
-            var carry = 0uL
+            var carry = 0u
             for (j in mag.indices) {
                 // Note: ULong is **necessary** to avoid overflow of other.mag[i] * mag[j].
-                val sum: ULong = result[i + j].toULong() + other.mag[i].toULong() * mag[j].toULong() + carry
-                carry = sum / BASE
+                val sum: ULong = other.mag[i].toULong() * mag[j].toULong() + result[i + j] + carry
+                carry = (sum / BASE).toUInt()
                 result[i + j] = (sum % BASE).toUInt()
             }
-            result[i + mag.size] = carry.toUInt()
+            result[i + mag.size] = carry
         }
 
         return BigUInt(result)
@@ -222,7 +222,7 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
     /**
      * Return this / 2
      */
-    private fun divBy2() = BigUInt(mag.divBy2(radix=BASE))
+    private fun divBy2() = BigUInt(mag.divBy2(radix = BASE))
 
     /**
      * Returns this / [other]
@@ -246,15 +246,9 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
             val productResult = other * mid
 
             when {
-                productResult == this || prevMid == mid -> { // Exit condition: mid = this / other.
-                    return mid
-                }
-                productResult < this -> { // mid < this / other. Too low.
-                    left = mid // x if after the middle.
-                }
-                else -> { // mid > this / other. Too high.
-                    right = mid // x is before the middle.
-                }
+                productResult == this || prevMid == mid -> return mid // Exit condition: mid = this / other.
+                productResult < this -> left = mid // mid < this / other. Too low.
+                else -> right = mid // mid > this / other. Too high.
             }
             prevMid = mid
         }
