@@ -11,7 +11,7 @@ import kotlin.time.measureTime
 class RsaTest : WordSpec({
     "decrypt(Big, Big, Big)" should {
         "returns a good result fast from base 10 to base 2^31" {
-            val expected = BigUInt.valueOf("123", 10)
+            val expected = BigUInt.valueOf("123")
             var result: BigUInt
             measureTime {
                 val c = BigUInt.valueOf("29075891562236853554062599128328159590183028980552101085544262704780053549534418578507236855720567419975163282590047789761592080601496152946952125090156744601158717295382511431523328696904736152776043566580142204885912443831792077784183631398221826664611547239837936198939692178263167338882034607609865731118")
@@ -20,7 +20,6 @@ class RsaTest : WordSpec({
                 result = Rsa.decrypt(c, d, n)
             }.also {
                 println("m = $result, Time elapsed: $it")
-                println("We are aiming at: 16ms from BigInteger")
             }
             result shouldBe expected
         }

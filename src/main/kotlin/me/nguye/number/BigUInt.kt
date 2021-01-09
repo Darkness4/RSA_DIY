@@ -44,9 +44,10 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
          * Returns BASE.pow(k).
          */
         fun basePowK(k: Int): BigUInt {
-            val mag = UIntArray(k + 1).apply {
-                set(k, 1u)
-            }
+            val mag = UIntArray(k + 1) { idx -> when(idx) {
+                k -> 1u
+                else -> 0u
+            }}
             return BigUInt(mag)
         }
     }

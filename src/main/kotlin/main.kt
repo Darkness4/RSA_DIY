@@ -21,6 +21,6 @@ fun main() {
         println("Time Elapsed : $it")
     }
 
-    BigUInt.valueOf("12345")
-    BigUInt.valueOf("0123456789abcdef", radix = 16)
+    println(BigUInt.valueOf("12345"))
+    println(BigUInt.valueOf("0123456789abcdef", radix = 16))
 }

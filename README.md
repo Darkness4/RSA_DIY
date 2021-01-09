@@ -520,23 +520,14 @@ infix fun remMagShl(k: Int): BigUInt {
 
 Car le reste de $x / n^k$ est $rem = x - n^k \times \lfloor\frac{x}{n^k}\rfloor$ puisque $\text{remainder} = x - \text{other} \times \text{quotient}$.
 
-Note : L'implémentation de `basePowK`.
+Note : L'implémentation de `basePowK` qui retourne $base^k$ en `BigUInt`.
 
 ```kotlin
-private fun basePowK(k: Int): BigUInt {
-    val mag = UIntArray(k + 1).apply {
-        set(k, 1u)
-    }
-    return BigUInt(mag)
-}
-```
-
-Sur Kotlin, `apply` permet enchainer des opérations à la déclaration. Equivalent :
-
-```kotlin
-private fun basePowK(base: UInt, k: Int): BigUInt {
-    val mag = UIntArray(k + 1)
-    mag[k] = 1u
+fun basePowK(k: Int): BigUInt {
+    val mag = UIntArray(k + 1) { idx -> when(idx) {
+        k -> 1u
+        else -> 0u
+    }}
     return BigUInt(mag)
 }
 ```
