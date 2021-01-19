@@ -142,6 +142,12 @@ class BigUIntTest : WordSpec({
     }
 
     "minus" should {
+        "a big test" {
+            val a = BigUInt.valueOf("808875172023299381901557550838302821130338410270580636008982357881317354281187997317869881030460954848582284738871129203205600146945640092904963665578531589125263001195483294096872093504962369395313524529571035503935061702407655921750293249367261267921442131495070963773234146007713429261")
+            val b = BigUInt.valueOf("1755970830787437532315416671127600607726693207842870621243005171975753603031289555787722136465977484152188228099276287568356720088142559119114143753072786916596539728540202452777687574007946809795603513227909933836740120471643310392957013918919785376996612467816483856321662579978157546473")
+            val c = BigUInt.valueOf("947095658764138150413859120289297786596354797572289985234022814094436248750101558469852255435516529303605943360405158365151119941196919026209180087494255327471276727344719158680815480502984440400289988698338898332805058769235654471206720669552524109075170336321412892548428433970444117212")
+            a - b shouldBe c
+        }
         "2 - 2 = 0" {
             val a = BigUInt.valueOf("2")
             val b = BigUInt.valueOf("2")
@@ -175,6 +181,15 @@ class BigUIntTest : WordSpec({
     }
 
     "modPow" should {
+        "2790 ^ 2 % 7 = 2" {
+            val c = BigUInt.valueOf("2790")
+            val d = BigUInt.valueOf("2")
+            val n = BigUInt.valueOf("7")
+
+            val expected = BigUInt.valueOf("2")
+            c.modPow(d, n) shouldBe expected
+        }
+
         "2790 ^ 413 % 3233 = 65 from base 36" {
             val c = BigUInt.valueOf("25I", 36)
             val d = BigUInt.valueOf("BH", 36)
@@ -213,17 +228,38 @@ class BigUIntTest : WordSpec({
         }
     }
 
+    "modTimes" should {
+        "17 modTimes 7 % 11 = 9" {
+            val a = BigUInt.valueOf("17")
+            val b = BigUInt.valueOf("7")
+            val n = BigUInt.valueOf("11")
+            val expected = BigUInt.valueOf("9")
+
+            val result = a.modTimes(b, n)
+
+            result shouldBe expected
+        }
+
+        "17 * 7 % 11 = 9" {
+            val a = BigUInt.valueOf("17")
+            val b = BigUInt.valueOf("7")
+            val n = BigUInt.valueOf("11")
+            val expected = BigUInt.valueOf("9")
+
+            val result = (a * b) % n
+
+            result shouldBe expected
+        }
+    }
+
     "montgomeryTimes" should {
         "A to phi(A) with A = 413 * BASE mod 3233 = 882" {
             val a = BigUInt.valueOf("413")
             val n = BigUInt.valueOf("3233")
 
-            val r = BigUInt.basePowK(n.mag.size)
             val rSquare = BigUInt.basePowK(n.mag.size * 2) % n
-            val v = r - (n modInverse r)
-            val aMgy = a.montgomeryTimes(rSquare, n, v)
+            val aMgy = a.montgomeryTimes(rSquare, n)
 
-            v shouldBe BigUInt.valueOf("1721706655")
             aMgy shouldBe BigUInt.valueOf("882")
         }
 
@@ -231,12 +267,9 @@ class BigUIntTest : WordSpec({
             val a = BigUInt.valueOf("413")
             val n = BigUInt.valueOf("3233")
 
-            val r = BigUInt.basePowK(n.mag.size)
             val rSquare = BigUInt.basePowK(n.mag.size * 2) % n
-            val v = r - (n modInverse r)
-
-            val aMgy = a.montgomeryTimes(rSquare, n, v)
-            val aNotMgy = aMgy.montgomeryTimes(BigUInt.one, n, v)
+            val aMgy = a.montgomeryTimes(rSquare, n)
+            val aNotMgy = aMgy.montgomeryTimes(BigUInt.one, n)
 
             aNotMgy shouldBe a
         }

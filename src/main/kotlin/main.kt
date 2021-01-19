@@ -1,26 +1,39 @@
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.arguments.argument
 import me.nguye.number.BigUInt
+import java.io.File
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
-@ExperimentalTime
-@ExperimentalUnsignedTypes
-fun main() {
-    println("decrypting")
-    measureTime {
-        val d =
-            BigUInt.valueOf("104055844167107781248589752608920442121435852413004719607463950823987312821132759166809988685882849660028713452809154247360580185712259277529373755633843749387184470871012615224812078370633557809434904918225321388120741945280206181683834799019246740113882929623211747709365319857181807977455643688718851270877") // Entrée tronquée
-        val c1 =
-            BigUInt.valueOf("29075891562236853554062599128328159590183028980552101085544262704780053549534418578507236855720567419975163282590047789761592080601496152946952125090156744601158717295382511431523328696904736152776043566580142204885912443831792077784183631398221826664611547239837936198939692178263167338882034607609865731118") // Entrée tronquée
-        val c2 =
-            BigUInt.valueOf("18843734104175461747620056345977644339191851013945250885633407629936001206924360108249391255994307246258972445193033936764824225343511129353256115730527634053372059460757473302517539364833128267263875409044686455385132768623440613529456243041634873615584800113654178971954173164382380348803475710656333741640") // Entrée tronquée
-        val n =
-            BigUInt.valueOf("179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639477074095512480796227391561801824887394139579933613278628104952355769470429079061808809522886423955917442317693387325171135071792698344550223571732405562649211") // Entrée tronquée
-        println(c1.modPow(d, n))
-        println(c2.modPow(d, n))
-    }.also {
-        println("Time Elapsed : $it")
-    }
+class Run : CliktCommand() {
+    private val c: String by argument(help = "Message")
+    private val d: String by argument(help = "Rsa Key")
+    private val n: String by argument(help = "Modulo")
 
-    println(BigUInt.valueOf("12345"))
-    println(BigUInt.valueOf("0123456789abcdef", radix = 16))
+    @ExperimentalUnsignedTypes
+    @ExperimentalTime
+    override fun run() {
+        var result: BigUInt
+        measureTime {
+            val d = BigUInt.valueOf(d)
+            val c = BigUInt.valueOf(c)
+            val n = BigUInt.valueOf(n)
+            result = c.modPow(d, n)
+        }.also {
+            println("m = $result, Time Elapsed : $it")
+            File("FirstCallRsa.txt").appendText("${it.toLongNanoseconds()}\n")
+        }
+
+        measureTime {
+            val d = BigUInt.valueOf(d)
+            val c = BigUInt.valueOf(c)
+            val n = BigUInt.valueOf(n)
+            result = c.modPow(d, n)
+        }.also {
+            println("m = $result, Time Elapsed : $it")
+            File("SecondCallRsa.txt").appendText("${it.toLongNanoseconds()}\n")
+        }
+    }
 }
+
+fun main(args: Array<String>) = Run().main(args)

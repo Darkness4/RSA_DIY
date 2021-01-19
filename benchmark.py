@@ -1,0 +1,33 @@
+import subprocess
+import os
+import statistics
+
+if os.path.exists("SecondCallRsa.txt"):
+    os.remove("SecondCallRsa.txt")
+
+if os.path.exists("FirstCallRsa.txt"):
+    os.remove("FirstCallRsa.txt")
+
+for i in range(20):
+    subprocess.run(
+        [
+            "java",
+            "-jar",
+            "./build/libs/shadow-1.0-all.jar",
+            "123",
+            "52224487813920772851484705774024104791041725032611188855422914385169436816446340185075407902663852671783148513920129269759675358456070367141485486466141735482277253659804041804890273942429837935659353075539833820029718824093277067899597404992298126900695606719490065832566430106728326912132689565599107834613",
+            "179769313486231590772930519078902473361797697894230657273430081157732675805500963132708477322407536021120113879871393357658789768814416622492847430639477074095512480796227391561801824887394139579933613278628104952355769470429079061808809522886423955917442317693387325171135071792698344550223571732405562649211",
+        ]
+    )
+
+with open("FirstCallRsa.txt", "r") as file:
+    data = list(map(int, file.readlines()))
+    print(
+        f"First call : {statistics.mean(data)/1e6} +- {statistics.stdev(data)/1e6}"
+    )
+
+with open("SecondCallRsa.txt", "r") as file:
+    data = list(map(int, file.readlines()))
+    print(
+        f"Second call : {statistics.mean(data)/1e6} +- {statistics.stdev(data)/1e6}"
+    )

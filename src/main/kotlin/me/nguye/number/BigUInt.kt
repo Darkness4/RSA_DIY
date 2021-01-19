@@ -4,7 +4,10 @@ import me.nguye.utils.divBy2
 import me.nguye.utils.stripTrailingZero
 import me.nguye.utils.toBase2Array
 import me.nguye.utils.toBase2PowK
+import java.math.BigInteger
 import kotlin.math.max
+import kotlin.random.Random
+import kotlin.random.asJavaRandom
 
 @ExperimentalUnsignedTypes
 class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
@@ -39,17 +42,46 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
 
         val zero = BigUInt(uintArrayOf(0u))
         val one = BigUInt(uintArrayOf(1u))
+        val two = BigUInt(uintArrayOf(2u))
+        val three = BigUInt(uintArrayOf(3u))
 
         /**
          * Returns BASE.pow(k).
          */
         fun basePowK(k: Int): BigUInt {
-            val mag = UIntArray(k + 1) { idx -> when(idx) {
-                k -> 1u
-                else -> 0u
-            }}
+            val mag = UIntArray(k + 1) { idx ->
+                when (idx) {
+                    k -> 1u
+                    else -> 0u
+                }
+            }
             return BigUInt(mag)
         }
+
+        /**
+         * Random below [max].
+         */
+        fun randomBelow(max: BigUInt): BigUInt {
+            val numBits = max.bitLength()
+            val big = BigInteger(numBits, Random.asJavaRandom())
+            return valueOf(big.toString())
+        }
+
+        /**
+         * A cache storing rSquare.
+         *
+         * Key is n (the modulo). Value is the associated r.pow(2) % n.
+         * @see modPow
+         */
+        private val rSquareCache = mutableMapOf<BigUInt, BigUInt>()
+
+        /**
+         * A cache storing v.
+         *
+         * Key is n (the modulo). Value is the associated v = r - (n modInverse r).
+         * @see modPow
+         */
+        private val vCache = mutableMapOf<BigUInt, BigUInt>()
     }
 
     /**
@@ -116,7 +148,7 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
         return if (result >= m) result - m else result
     }
 
-    fun modMinus(other: BigUInt, m: BigUInt): BigUInt {
+    fun modSubtract(other: BigUInt, m: BigUInt): BigUInt {
         val thisMod = if (this >= m || this < zero) this % m else this
         val otherMod = if (other >= m || other < zero) other % m else other
         return if (thisMod >= otherMod) thisMod - otherMod else m + thisMod - otherMod
@@ -318,7 +350,11 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
      * Beware that the number should be in the Montgomery form beforehand with the Montgomery transform.
      * e.g : ThisInMontgomery = This * r mod n, where r = base^k with r < base.pow(k).
      */
-    fun montgomeryTimes(other: BigUInt, n: BigUInt, v: BigUInt): BigUInt {
+    fun montgomeryTimes(other: BigUInt, n: BigUInt): BigUInt {
+        val r = basePowK(n.mag.size)
+        // v*n = -1 mod r = (r - 1) mod r
+        val v = vCache.computeIfAbsent(n) { r - (n modInverse r) }
+
         val s = this * other
         val t = (s * v) remMagShl n.mag.size // m % base.pow(n)
         val m = s + t * n
@@ -326,31 +362,45 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
         return if (u >= n) u - n else u
     }
 
+    fun modTimes(other: BigUInt, n: BigUInt): BigUInt {
+        val rSquare = rSquareCache.computeIfAbsent(n) { basePowK(n.mag.size * 2) % n }
+
+        // Put this and other in montgomery form
+        val thisMgy = this.montgomeryTimes(rSquare, n)
+        val otherMgy = other.montgomeryTimes(rSquare, n)
+
+        val resultMgy = thisMgy.montgomeryTimes(otherMgy, n)
+
+        // Return the result in the standard form
+        return resultMgy.montgomeryTimes(one, n)
+    }
+
     /**
      * this ^ exponent mod n using Montgomery Reduction Algorithm and Square-and-Multiply Algorithm.
      */
     fun modPow(exponent: BigUInt, n: BigUInt): BigUInt {
-        val exponentBase2 = exponent.mag.toBase2Array(radix = BASE)
+        val exponentBase2 = exponent.toBase2Array()
         val r = basePowK(n.mag.size)
-        val rSquare = basePowK(n.mag.size * 2) % n
 
-        // v*n = -1 mod r = (r - 1) mod r
-        val v = r - (n modInverse r)
+        val rSquare = rSquareCache.computeIfAbsent(n) { basePowK(n.mag.size * 2) % n }
 
         // Put this in montgomery form
-        val thisMgy = this.montgomeryTimes(rSquare, n, v)
+        val thisMgy = this.montgomeryTimes(rSquare, n)
 
         var p = r - n // 1 in montgomery form
         for (i in exponentBase2.size - 1 downTo 0) {
-            p = p.montgomeryTimes(p, n, v) // Square : p = p*p
+            p = p.montgomeryTimes(p, n) // Square : p = p*p
             if (exponentBase2[i] == 1u) {
-                p = p.montgomeryTimes(thisMgy, n, v) // Multiply : p = p * a
+                p = p.montgomeryTimes(thisMgy, n) // Multiply : p = p * a
             }
         }
 
         // Return the result in the standard form
-        return p.montgomeryTimes(one, n, v)
+        return p.montgomeryTimes(one, n)
     }
+
+    fun toBase2Array(): UIntArray = this.mag.toBase2Array(radix = BASE)
+    fun bitLength(): Int = toBase2Array().size
 
     override fun toString(): String {
         return this.mag.joinToString(

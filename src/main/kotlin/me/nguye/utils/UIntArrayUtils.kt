@@ -52,12 +52,15 @@ fun UIntArray.divBy2(radix: UInt): UIntArray {
 @ExperimentalUnsignedTypes
 fun UIntArray.toBase2Array(radix: UInt): UIntArray {
     val size = ceil(this.size * log2(radix.toDouble())).toInt()
-    val result = UIntArray(size)
+    var result = UIntArray(size)
     val zero = uintArrayOf(0u)
 
     var i = 0
     var num = this
     while (!num.contentEquals(zero)) {
+        if (i >= result.size) {  // BufferOverflow. Allocate more !  // TODO: Error
+            result = result.copyOf(i + size)
+        }
         result[i] = num[0] % 2u // num % 2
         num = num.divBy2(radix).stripTrailingZero()
         i++
