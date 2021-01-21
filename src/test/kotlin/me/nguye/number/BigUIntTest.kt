@@ -228,6 +228,24 @@ class BigUIntTest : WordSpec({
         }
     }
 
+    "{1, 2, 3} magShl 2 should" should {
+        "returns {3}" {
+            val a = BigUInt(uintArrayOf(1u, 2u, 3u))
+            val expected = BigUInt(uintArrayOf(3u))
+            val result = a magShl 2
+            result shouldBe expected
+        }
+    }
+
+    "{1, 2, 3} remMagShl 2 should" should {
+        "returns {1, 2}" {
+            val a = BigUInt(uintArrayOf(1u, 2u, 3u))
+            val expected = BigUInt(uintArrayOf(1u, 2u))
+            val result = a remMagShl 2
+            result shouldBe expected
+        }
+    }
+
     "modTimes" should {
         "17 modTimes 7 % 11 = 9" {
             val a = BigUInt.valueOf("17")

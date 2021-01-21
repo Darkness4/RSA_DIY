@@ -9,6 +9,18 @@ import kotlin.time.measureTime
 @ExperimentalTime
 @ExperimentalUnsignedTypes
 class RsaTest : WordSpec({
+    "Smoke Test" should {
+        "work" {
+            val c = BigUInt.fromBase64String("KWfLLVOs8NkJ2Vui1OpgbDvYEzcG50zp7nDYkEsw1S7Ugb2Vf1M6GS3yr+H3L7pDZqbWkMXgw9NyGjxo2w4SSU3lKyXySHxd5EnHPlFCmCh34CCIJ0/nmv0Mb+A3cpsSZvL6nMV3l1YRs02SrpqsaDl5f1TrKr27NtHh1ZlafC4=")
+            val d = BigUInt.fromBase64String("lC4xXYmOp5NPK4wjPgUp59TjKyBmeeu6MdGPgD8HfDrJWZImoCefrPELmVhQes9+L0OBHmnpCk0YXpYtIRJAJF/0+5hzcx0GVf5VntL/PJQSsaZMs6pRCk9dqpwBQQrtAUgvSTVFveCul4+XKzncdpG2fAbWRaFkUR7aDKtqaN0=")
+            val n = BigUInt.fromBase64String("AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACp7")
+
+            // Usage
+            val m = Rsa.decrypt(c, d, n)
+            println("m=$m")
+            println("m=${m.toBase64String()}")
+        }
+    }
     "decrypt(Big, Big, Big)" should {
         "returns a good result fast from base 10 to base 2^31" {
             val expected = BigUInt.valueOf("123")

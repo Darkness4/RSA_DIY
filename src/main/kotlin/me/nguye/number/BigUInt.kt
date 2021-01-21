@@ -5,6 +5,7 @@ import me.nguye.utils.stripTrailingZero
 import me.nguye.utils.toBase2Array
 import me.nguye.utils.toBase2PowK
 import java.math.BigInteger
+import java.util.Base64
 import kotlin.math.max
 import kotlin.random.Random
 import kotlin.random.asJavaRandom
@@ -17,7 +18,7 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
         private const val EXPONENT = 31
 
         /**
-         * Store the [str] in the [BigUInt] object with the [radix].
+         * Store the [str] in the [BigUInt] object in a magnitude array.
          *
          * E.g.: 123 --> BigUInt({ 123 })
          */
@@ -40,6 +41,14 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
             return BigUInt(mag)
         }
 
+        fun fromBase64String(str: String): BigUInt {
+            val bytes = Base64.getDecoder().decode(str)
+            val mag = bytes.asUByteArray().map { it.toUInt() }.reversed().toUIntArray() // Big Endian to Little Endian
+                .stripTrailingZero()
+                .toBase2PowK(256u, EXPONENT) // Convert array in base 2^8 (byte) to base 2^EXPONENT
+            return BigUInt(mag)
+        }
+
         val zero = BigUInt(uintArrayOf(0u))
         val one = BigUInt(uintArrayOf(1u))
         val two = BigUInt(uintArrayOf(2u))
@@ -59,12 +68,23 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
         }
 
         /**
-         * Random below [max].
+         * Random [BigUInt] below [max].
          */
         fun randomBelow(max: BigUInt): BigUInt {
             val numBits = max.bitLength()
             val big = BigInteger(numBits, Random.asJavaRandom())
             return valueOf(big.toString())
+        }
+
+        /**
+         *  Random [BigUInt] with [length] bytes.
+         */
+        fun randomWithByteLength(length: Int): BigUInt {
+            val bytes = Random.nextBytes(ByteArray(length))
+            val mag = bytes.asUByteArray().map { it.toUInt() }.toUIntArray()
+                .stripTrailingZero()
+                .toBase2PowK(256u, EXPONENT) // Convert array in base 2^8 (byte) to base 2^EXPONENT
+            return BigUInt(mag)
         }
 
         /**
@@ -242,14 +262,12 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
     /**
      * Return the remainder of `this / base.pow(k)`.
      *
-     * Algorithm description: School case algorithm.
-     * Remainder = a - b * Quotient.
+     * Algorithm description: Simple copy with the selected range.
      */
     infix fun remMagShl(k: Int): BigUInt {
         if (k == 0) return zero
-
-        val divResult = this magShl k
-        return this - basePowK(k) * divResult
+        val result = if (k < mag.size) mag.copyOfRange(0, k) else mag
+        return BigUInt(result)
     }
 
     /**
@@ -351,9 +369,11 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
      * e.g : ThisInMontgomery = This * r mod n, where r = base^k with r < base.pow(k).
      */
     fun montgomeryTimes(other: BigUInt, n: BigUInt): BigUInt {
-        val r = basePowK(n.mag.size)
         // v*n = -1 mod r = (r - 1) mod r
-        val v = vCache.computeIfAbsent(n) { r - (n modInverse r) }
+        val v = vCache.computeIfAbsent(n) {
+            val r = basePowK(n.mag.size)
+            r - (n modInverse r)
+        }
 
         val s = this * other
         val t = (s * v) remMagShl n.mag.size // m % base.pow(n)
@@ -399,14 +419,27 @@ class BigUInt(mag: UIntArray) : Comparable<BigUInt> {
         return p.montgomeryTimes(one, n)
     }
 
+    fun toBase2PowK(k: Int) = this.mag.toBase2PowK(radix = BASE, k = k)
     fun toBase2Array(): UIntArray = this.mag.toBase2Array(radix = BASE)
     fun bitLength(): Int = toBase2Array().size
 
-    override fun toString(): String {
-        return this.mag.joinToString(
-            prefix = "{",
-            postfix = "}"
-        )
+    override fun toString() = toBase16String()
+
+    private fun toBase16String(): String {
+        return toBase2PowK(4).stripTrailingZero().reversed().joinToString(
+            prefix = "",
+            postfix = "",
+            separator = ""
+        ) { it.toString(radix = 16) }
+    }
+
+    /**
+     * Return an array of byte in big endian.
+     */
+    fun toByteArray(): ByteArray = toBase2PowK(8).stripTrailingZero().reversed().map { it.toByte() }.toByteArray()
+
+    fun toBase64String(): String {
+        return Base64.getEncoder().encodeToString(this.toByteArray())
     }
 
     override fun compareTo(other: BigUInt): Int {

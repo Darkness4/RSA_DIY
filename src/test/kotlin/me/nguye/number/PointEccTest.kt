@@ -23,7 +23,7 @@ class PointEccTest : WordSpec({
                 row(9, "3176317450453705650283775811228493626776489433309636475023" to "44601893774669384766793803854980115179612118075017062201"),
             ) { idx, point ->
                 val expected = PointEcc(BigUInt.valueOf(point.first), BigUInt.valueOf(point.second), Secp192r1)
-                val p = Secp192r1.generator.scalarMultiply(BigUInt.valueOf(idx.toString()))
+                val p = Secp192r1.generator * BigUInt.valueOf(idx.toString())
                 p shouldBe expected
             }
         }

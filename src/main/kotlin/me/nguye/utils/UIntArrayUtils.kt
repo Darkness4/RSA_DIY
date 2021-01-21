@@ -16,16 +16,7 @@ fun UIntArray.stripTrailingZero(): UIntArray {
 /**
  * Considering that UIntArray is a array of digit. Return this / 2
  *
- * Algorithm description:
- * `(a_0 + a_1 * base + ... + a_n * base^n)/2` can be developed to
- * `a_0/2 + (a_1 * base)/2 + ... + (a_n * base^n)/2`. If one of the division has a carry (i.e is impair), then
- *  this carry will pass to the i - 1 th element.
- *
- * So, to summarize:
- * -  Loop from the nth element to the zeroth element
- *    - Add the carry if exist
- *    - Store the new carry if impair
- *    - Divide by 2 the element
+ * Algorithm : School case algorithm
  */
 @ExperimentalUnsignedTypes
 fun UIntArray.divBy2(radix: UInt): UIntArray {
@@ -58,7 +49,7 @@ fun UIntArray.toBase2Array(radix: UInt): UIntArray {
     var i = 0
     var num = this
     while (!num.contentEquals(zero)) {
-        if (i >= result.size) {  // BufferOverflow. Allocate more !  // TODO: Error
+        if (i >= result.size) { // Buffer Overflow ! Allocate more !
             result = result.copyOf(i + size)
         }
         result[i] = num[0] % 2u // num % 2

@@ -20,9 +20,9 @@ data class PointEcc(val x: BigUInt, val y: BigUInt, val curve: Curve) {
             )
 
         // r_x = s.pow(2) - p_x - q_x
-        val resultX = (s * s).modSubtract(this.x, curve.p).modSubtract(other.x, curve.p)
+        val resultX = s.modTimes(s, curve.p).modSubtract(this.x, curve.p).modSubtract(other.x, curve.p)
         // r_y = s * (p_x - r_x) - p_y
-        val resultY = (s * this.x.modSubtract(resultX, curve.p)).modSubtract(this.y, curve.p)
+        val resultY = s.modTimes(this.x.modSubtract(resultX, curve.p), curve.p).modSubtract(this.y, curve.p)
 
         return PointEcc(resultX, resultY, curve)
     }
@@ -32,15 +32,15 @@ data class PointEcc(val x: BigUInt, val y: BigUInt, val curve: Curve) {
         if (this == zero) return zero
 
         // s = (3 * p_x.pow(2) + a) / (2 * p_y)
-        val s = (BigUInt.three * this.x * this.x).modAdd(
+        val s = (BigUInt.three.modTimes(this.x.modTimes(this.x, curve.p), curve.p)).modAdd(
             curve.a,
             curve.p
-        ) * ((BigUInt.two * this.y) modInverse curve.p)
+        ) * ((BigUInt.two.modTimes(this.y, curve.p)) modInverse curve.p)
 
         // r_x = s.pow(2) - 2p_x
-        val resultX = (s * s).modSubtract(this.x, curve.p).modSubtract(this.x, curve.p)
+        val resultX = s.modTimes(s, curve.p).modSubtract(BigUInt.two.modTimes(this.x, curve.p), curve.p)
         // r_y = s * (p_x - r_x) - p_y
-        val resultY = (s * this.x.modSubtract(resultX, curve.p)).modSubtract(this.y, curve.p)
+        val resultY = s.modTimes(this.x.modSubtract(resultX, curve.p), curve.p).modSubtract(this.y, curve.p)
 
         return PointEcc(resultX, resultY, curve)
     }
