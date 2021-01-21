@@ -49,9 +49,6 @@ fun UIntArray.toBase2Array(radix: UInt): UIntArray {
     var i = 0
     var num = this
     while (!num.contentEquals(zero)) {
-        if (i >= result.size) { // Buffer Overflow ! Allocate more !
-            result = result.copyOf(i + size)
-        }
         result[i] = num[0] % 2u // num % 2
         num = num.divBy2(radix).stripTrailingZero()
         i++

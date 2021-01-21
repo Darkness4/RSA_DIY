@@ -162,5 +162,58 @@ class EdchTest : WordSpec({
                 .let { sqrt(it / resultSharedKey.size) }
             println("${mean2.toDuration(DurationUnit.NANOSECONDS)} ± ${stddev2.toDuration(DurationUnit.NANOSECONDS)}")
         }
+
+        /*"benchmark Secp521r1" {
+            val session = Edch(Secp521r1)
+
+            println(session.fakeKeyExchange())
+
+            val resultPublicKey = mutableListOf<Long>()
+            val resultSharedKey = mutableListOf<Long>()
+
+            for (i in 1..5) {
+                val alicePrivateKey = session.generatePrivateKey()
+                var alicePublicKey: PointEcc
+                measureNanoTime {
+                    alicePublicKey = session.generatePublicKey(alicePrivateKey)
+                }.also {
+                    resultPublicKey.add(it)
+                }
+
+                val bobPrivateKey = session.generatePrivateKey()
+                var bobPublicKey: PointEcc
+                measureNanoTime {
+                    bobPublicKey = session.generatePublicKey(bobPrivateKey)
+                }.also {
+                    resultPublicKey.add(it)
+                }
+
+                println("Key Exchange !!!")
+
+                measureNanoTime {
+                    session.generateSharedKey(bobPublicKey, alicePrivateKey)
+                }.also {
+                    resultSharedKey.add(it)
+                }
+
+                measureNanoTime {
+                    session.generateSharedKey(alicePublicKey, bobPrivateKey)
+                }.also {
+                    resultSharedKey.add(it)
+                }
+            }
+
+            val mean = resultPublicKey.average()
+            val stddev = resultPublicKey
+                .fold(0.0, { accumulator, next -> accumulator + (next - mean).pow(2.0) })
+                .let { sqrt(it / resultPublicKey.size) }
+            println("${mean.toDuration(DurationUnit.NANOSECONDS)} ± ${stddev.toDuration(DurationUnit.NANOSECONDS)}")
+
+            val mean2 = resultSharedKey.average()
+            val stddev2 = resultSharedKey
+                .fold(0.0, { accumulator, next -> accumulator + (next - mean2).pow(2.0) })
+                .let { sqrt(it / resultSharedKey.size) }
+            println("${mean2.toDuration(DurationUnit.NANOSECONDS)} ± ${stddev2.toDuration(DurationUnit.NANOSECONDS)}")
+        }*/
     }
 })
